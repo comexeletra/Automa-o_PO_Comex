@@ -2,7 +2,7 @@
 
 from workers import asgi
 
-from app.main import app
+from main import app
 
 
 # Cloudflare's ASGI adapter runs FastAPI without Uvicorn.

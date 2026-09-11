@@ -11,8 +11,12 @@ from pathlib import Path
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from app.exceptions import InvalidPdfError, PdfTextLayerNotFoundError, UnsupportedLayoutError
-from app.models import PurchaseOrder, PurchaseOrderItem
+try:  # Local package execution
+    from app.exceptions import InvalidPdfError, PdfTextLayerNotFoundError, UnsupportedLayoutError
+    from app.models import PurchaseOrder, PurchaseOrderItem
+except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
+    from exceptions import InvalidPdfError, PdfTextLayerNotFoundError, UnsupportedLayoutError
+    from models import PurchaseOrder, PurchaseOrderItem
 
 
 def parse_ptbr_decimal(value: str) -> Decimal:

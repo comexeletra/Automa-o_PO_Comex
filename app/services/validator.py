@@ -1,7 +1,11 @@
 from decimal import Decimal, ROUND_HALF_UP
 
-from app.exceptions import ValidationError
-from app.models import PurchaseOrder
+try:  # Local package execution
+    from app.exceptions import ValidationError
+    from app.models import PurchaseOrder
+except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
+    from exceptions import ValidationError
+    from models import PurchaseOrder
 
 
 def validate_purchase_order(po: PurchaseOrder) -> tuple[str, ...]:

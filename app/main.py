@@ -10,9 +10,14 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.config import APP_ROOT, settings
-from app.exceptions import PurchaseOrderError
-from app.services.processor import process_purchase_order
+try:  # Local package execution
+    from app.config import APP_ROOT, settings
+    from app.exceptions import PurchaseOrderError
+    from app.services.processor import process_purchase_order
+except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
+    from config import APP_ROOT, settings
+    from exceptions import PurchaseOrderError
+    from services.processor import process_purchase_order
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -12,8 +12,12 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.utils import get_column_letter
 
-from app.exceptions import ExcelTemplateError
-from app.models import PurchaseOrder
+try:  # Local package execution
+    from app.exceptions import ExcelTemplateError
+    from app.models import PurchaseOrder
+except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
+    from exceptions import ExcelTemplateError
+    from models import PurchaseOrder
 
 
 SHEET_NAME = "Material for production"
