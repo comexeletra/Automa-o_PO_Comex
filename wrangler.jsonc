@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "convesorcomexpo",
-  "main": "app/worker.py",
+  "main": "app/main.py",
   "compatibility_date": "2026-09-11",
   "compatibility_flags": ["python_workers"],
   "base_dir": "app",

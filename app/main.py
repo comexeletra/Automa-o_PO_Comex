@@ -10,6 +10,11 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+try:  # Available in the Cloudflare Python Workers runtime.
+    from workers import asgi
+except ModuleNotFoundError:  # Keep the regular local FastAPI workflow intact.
+    asgi = None
+
 try:  # Local package execution
     from app.config import APP_ROOT, settings
     from app.exceptions import PurchaseOrderError
@@ -67,3 +72,9 @@ async def process(request: Request, file: UploadFile = File(...)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# Python Workers expects the entrypoint to be registered by the module declared
+# in wrangler.jsonc. Keeping it here avoids a second module during startup.
+if asgi is not None:
+    Default = asgi.entrypoint(app)
