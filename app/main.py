@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
@@ -42,6 +44,11 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/result", response_class=HTMLResponse)
+def result_screen(request: Request):
+    return templates.TemplateResponse(request, "result.html")
+
+
 @app.post("/process", response_class=HTMLResponse)
 async def process(request: Request, file: UploadFile = File(...)):
     if file.content_type not in {"application/pdf", "application/x-pdf"} or not (file.filename or "").lower().endswith(".pdf"):
@@ -70,7 +77,16 @@ async def process(request: Request, file: UploadFile = File(...)):
     return Response(
         content=workbook,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-PO-Number": quote(result.po.po_number, safe=""),
+            "X-Supplier": quote(result.po.supplier_name or "—", safe=""),
+            "X-Item-Count": str(len(result.po.items)),
+            "X-Merchandise-Total": quote(str(result.po.merchandise_total or "—"), safe=""),
+            "X-SCs": quote(", ".join(result.sc_numbers) or "—", safe=""),
+            "X-Warnings": quote(json.dumps(result.warnings, ensure_ascii=False), safe=""),
+            "X-Processing-Seconds": f"{processing_seconds:.2f}",
+        },
     )
 
 

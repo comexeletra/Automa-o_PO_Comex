@@ -47,7 +47,8 @@
       uploadField.classList.toggle('has-file', Boolean(selectedFile));
     });
 
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
       const startedAt = performance.now();
       processButton.disabled = true;
       processButton.textContent = 'Processando pedido...';
@@ -61,7 +62,50 @@
       };
 
       updateTimer();
-      window.setInterval(updateTimer, 1000);
+      const timerId = window.setInterval(updateTimer, 1000);
+
+      try {
+        const response = await fetch(form.action, {
+          method: form.method,
+          body: new FormData(form),
+        });
+
+        if (!response.ok) {
+          document.open();
+          document.write(await response.text());
+          document.close();
+          return;
+        }
+
+        const workbook = await response.blob();
+        const downloadUrl = URL.createObjectURL(workbook);
+        const downloadLink = document.createElement('a');
+        const filename = response.headers.get('Content-Disposition')
+          ?.match(/filename="?([^";]+)"?/)?.[1] || 'pedido_totvs.xlsx';
+
+        downloadLink.href = downloadUrl;
+        downloadLink.download = filename;
+        downloadLink.click();
+        URL.revokeObjectURL(downloadUrl);
+
+        sessionStorage.setItem('totvs-last-result', JSON.stringify({
+          poNumber: decodeURIComponent(response.headers.get('X-PO-Number') || ''),
+          supplier: decodeURIComponent(response.headers.get('X-Supplier') || ''),
+          itemCount: response.headers.get('X-Item-Count') || '0',
+          merchandiseTotal: decodeURIComponent(response.headers.get('X-Merchandise-Total') || ''),
+          scs: decodeURIComponent(response.headers.get('X-SCs') || ''),
+          warnings: JSON.parse(decodeURIComponent(response.headers.get('X-Warnings') || '[]')),
+          processingSeconds: response.headers.get('X-Processing-Seconds') || '0.00',
+        }));
+        window.location.assign('/result');
+      } catch (error) {
+        console.error('Falha ao processar o pedido:', error);
+        processingTimer.textContent = 'Não foi possível processar o pedido. Tente novamente.';
+        processButton.textContent = 'Processar pedido';
+      } finally {
+        window.clearInterval(timerId);
+        processButton.disabled = false;
+      }
     });
   </script>
 </body>

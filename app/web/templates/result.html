@@ -9,22 +9,43 @@
     <section class="converter-card result-card">
       <p class="eyebrow">PROCESSAMENTO CONCLUÍDO</p>
       <h1>Pedido processado</h1>
+      <p class="intro">O download do Excel foi iniciado.</p>
       <dl class="result-grid">
-        <dt>PO</dt><dd>{{ result.po.po_number }}</dd>
-        <dt>Fornecedor</dt><dd>{{ result.po.supplier_name or "—" }}</dd>
-        <dt>Itens</dt><dd>{{ result.po.items|length }}</dd>
-        <dt>Total das mercadorias</dt><dd>{{ result.po.merchandise_total or "—" }}</dd>
-        <dt>SCs encontrados</dt><dd>{{ scs|join(", ") or "—" }}</dd>
-        <dt>Tempo de processamento</dt><dd>{{ "%.2f"|format(processing_seconds) }} s</dd>
+        <dt>PO</dt><dd id="result-po">—</dd>
+        <dt>Fornecedor</dt><dd id="result-supplier">—</dd>
+        <dt>Itens</dt><dd id="result-item-count">—</dd>
+        <dt>Total das mercadorias</dt><dd id="result-merchandise-total">—</dd>
+        <dt>SCs encontrados</dt><dd id="result-scs">—</dd>
+        <dt>Tempo de processamento</dt><dd id="result-processing-seconds">—</dd>
       </dl>
-      {% if result.warnings %}
-      <p class="warning">Avisos: {{ result.warnings|join(", ") }}</p>
-      {% endif %}
+      <p id="result-warnings" class="warning" hidden></p>
       <div class="actions">
-        <a class="button-link" href="/download/{{ job_id }}">Baixar Excel <span aria-hidden="true">↓</span></a>
         <a class="text-link" href="/">Processar outro pedido</a>
       </div>
     </section>
   </main>
+  <script>
+    const storedResult = sessionStorage.getItem('totvs-last-result');
+
+    if (!storedResult) {
+      window.location.replace('/');
+    } else {
+      const result = JSON.parse(storedResult);
+      document.getElementById('result-po').textContent = result.poNumber || '—';
+      document.getElementById('result-supplier').textContent = result.supplier || '—';
+      document.getElementById('result-item-count').textContent = result.itemCount || '—';
+      document.getElementById('result-merchandise-total').textContent = result.merchandiseTotal || '—';
+      document.getElementById('result-scs').textContent = result.scs || '—';
+      document.getElementById('result-processing-seconds').textContent = `${result.processingSeconds || '0.00'} s`;
+
+      if (result.warnings?.length) {
+        const warnings = document.getElementById('result-warnings');
+        warnings.textContent = `Avisos: ${result.warnings.join(', ')}`;
+        warnings.hidden = false;
+      }
+
+      sessionStorage.removeItem('totvs-last-result');
+    }
+  </script>
 </body>
 </html>
