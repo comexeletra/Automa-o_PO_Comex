@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/static/style.css">
+  <title>Conversor Pedido TOTVS | Eletra</title>
+</head>
+<body>
+  <main class="page-shell">
+    <section class="brand-bar" aria-label="Eletra Energy Solutions">
+      <img src="/assets/logo%20eletra.png" alt="Eletra Energy Solutions" class="brand-logo">
+      <span>Foreign Trade</span>
+    </section>
+    <section class="converter-card">
+      <p class="eyebrow">AUTOMAÇÃO DE COMPRAS</p>
+      <h1>Conversor de Pedido TOTVS</h1>
+      <p class="intro">Transforme o pedido de compra em uma planilha Excel estruturada, mantendo os dados fiéis ao PDF.</p>
+      <form action="/process" method="post" enctype="multipart/form-data">
+        <label class="upload-field" for="pdf-file">
+          <span class="upload-icon" aria-hidden="true">↑</span>
+          <span class="upload-title">Selecione o PDF do pedido</span>
+          <span class="upload-help">Arquivos PDF de até 20 MB</span>
+          <span class="upload-control">
+            <span class="upload-button">Escolher arquivo</span>
+            <span id="file-name" class="file-name" aria-live="polite">Nenhum arquivo selecionado</span>
+          </span>
+          <input class="file-input" id="pdf-file" type="file" name="file" accept="application/pdf,.pdf" required>
+        </label>
+        <p id="processing-timer" class="processing-timer" role="status" aria-live="polite" hidden></p>
+        <button type="submit">Processar pedido <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+    <p class="footer-note">Dados extraídos exclusivamente do relatório TOTVS.</p>
+  </main>
+  <script>
+    const fileInput = document.getElementById('pdf-file');
+    const fileName = document.getElementById('file-name');
+    const uploadField = document.querySelector('.upload-field');
+    const form = document.querySelector('form');
+    const processButton = form.querySelector('button[type="submit"]');
+    const processingTimer = document.getElementById('processing-timer');
+
+    fileInput.addEventListener('change', () => {
+      const selectedFile = fileInput.files[0];
+      fileName.textContent = selectedFile ? selectedFile.name : 'Nenhum arquivo selecionado';
+      uploadField.classList.toggle('has-file', Boolean(selectedFile));
+    });
+
+    form.addEventListener('submit', () => {
+      const startedAt = performance.now();
+      processButton.disabled = true;
+      processButton.textContent = 'Processando pedido...';
+      processingTimer.hidden = false;
+
+      const updateTimer = () => {
+        const elapsedSeconds = Math.floor((performance.now() - startedAt) / 1000);
+        const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+        const seconds = String(elapsedSeconds % 60).padStart(2, '0');
+        processingTimer.textContent = `Processando pedido: ${minutes}:${seconds}`;
+      };
+
+      updateTimer();
+      window.setInterval(updateTimer, 1000);
+    });
+  </script>
+</body>
+</html>
