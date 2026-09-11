@@ -8,7 +8,8 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-import fitz
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 from app.exceptions import InvalidPdfError, PdfTextLayerNotFoundError, UnsupportedLayoutError
 from app.models import PurchaseOrder, PurchaseOrderItem
@@ -29,17 +30,19 @@ def _normalized(value: str) -> str:
 @dataclass(frozen=True)
 class TotvsPdfLayout:
     product_x0: float = 32
-    description_x0: float = 90
+    description_x0: float = 85
     description_x1: float = 192
     unit_x0: float = 192
     quantity_x0: float = 208
     quantity_x1: float = 300
     unit_price_x0: float = 343
     ip_x0: float = 400
-    total_x0: float = 400
-    delivery_x0: float = 445
-    cc_x0: float = 492
-    sc_x0: float = 528
+    # pypdf reports the same page geometry with the total and trailing columns
+    # slightly farther right than PyMuPDF did.
+    total_x0: float = 430
+    delivery_x0: float = 470
+    cc_x0: float = 520
+    sc_x0: float = 560
 
 
 _ITEM = re.compile(r"^\d{3}$")
@@ -47,9 +50,25 @@ _CODE = re.compile(r"^\d{10}$")
 _NUMBER = re.compile(r"^-?[\d.]+,\d+$")
 
 
-def _lines(page: fitz.Page) -> list[list[tuple[float, float, float, str]]]:
+def _lines(page) -> list[list[tuple[float, float, float, str]]]:
+    """Extract positioned words with pypdf's pure-Python visitor API."""
+    words: list[tuple[float, float, float, str]] = []
+
+    def visitor(text, _cm, tm, _font, font_size):
+        if not text or tm is None:
+            return
+        x0, y0 = float(tm[4]), float(tm[5])
+        # PDFs usually emit a visitor event per word. When a producer combines
+        # words, distribute them using a conservative glyph-width estimate.
+        for match in re.finditer(r"\S+", text):
+            left = x0 + match.start() * float(font_size or 10) * 0.5
+            word = match.group(0)
+            words.append((left, y0, left + len(word) * float(font_size or 10) * 0.5, word))
+
+    page.extract_text(visitor_text=visitor)
     rows: list[list[tuple[float, float, float, str]]] = []
-    for x0, y0, x1, _y1, text, *_ in sorted(page.get_text("words"), key=lambda w: (round(w[1], 1), w[0])):
+    # PDF coordinates grow bottom-to-top, so sort top-to-bottom first.
+    for x0, y0, x1, text in sorted(words, key=lambda word: (-round(word[1], 1), word[0])):
         if not rows or abs(rows[-1][0][1] - y0) > 2.2:
             rows.append([])
         rows[-1].append((x0, y0, x1, text))
@@ -100,7 +119,8 @@ def _date(value: str | None):
 
 
 def _metadata(text: str) -> dict[str, object | None]:
-    po_match = re.search(r"(?m)^\s*(\d{6,})\s*/\d+", text)
+    # pypdf preserves the purchase-order heading and its number on one line.
+    po_match = re.search(r"\b(\d{6,})\s*/\d+", text)
     po = po_match.group(1) if po_match else _find_label_value(text, (r"Pedido(?:\s+de\s+Compra)?",), r"\s*(?:N[ºo.]*)?\s*[:#]?\s*(\d{4,})")
     issue_match = re.search(r"Data\s+de\s+Emiss[aã]o(?:[^\n]*\n){0,4}?\s*(\d{2}/\d{2}/\d{4})", text, re.IGNORECASE)
     issue = issue_match.group(1) if issue_match else _find_label_value(text, (r"Data\s+de\s+Emiss[aã]o",), r"\s*[:#]?\s*(\d{2}/\d{2}/\d{4})")
@@ -123,11 +143,11 @@ def parse_purchase_order(pdf_path: Path, layout: TotvsPdfLayout = TotvsPdfLayout
     if not pdf_path.is_file() or pdf_path.suffix.lower() != ".pdf":
         raise InvalidPdfError("O arquivo enviado não é um PDF válido.")
     try:
-        document = fitz.open(pdf_path)
-    except fitz.FileDataError as exc:
+        document = PdfReader(str(pdf_path))
+    except PdfReadError as exc:
         raise InvalidPdfError("O arquivo enviado não é um PDF válido.") from exc
     try:
-        all_text = "\n".join(page.get_text() for page in document)
+        all_text = "\n".join(page.extract_text(extraction_mode="layout") or "" for page in document.pages)
         if len(all_text.strip()) < 100:
             raise PdfTextLayerNotFoundError("PDF_TEXT_LAYER_NOT_FOUND")
         normalized_text = _normalized(all_text)
@@ -135,7 +155,7 @@ def parse_purchase_order(pdf_path: Path, layout: TotvsPdfLayout = TotvsPdfLayout
             raise UnsupportedLayoutError("UNSUPPORTED_TOTVS_PDF_LAYOUT")
         data = _metadata(all_text)
         items: list[PurchaseOrderItem] = []
-        for page in document:
+        for page in document.pages:
             current: dict[str, object] | None = None
             for row in _lines(page):
                 tokens = [word for _x, _y, _r, word in row]

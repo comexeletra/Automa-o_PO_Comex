@@ -1,0 +1,18 @@
+[project]
+name = "automacao-po-comex"
+version = "0.1.0"
+description = "Conversor de pedidos TOTVS para Excel executado no Cloudflare Workers"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "jinja2",
+    "openpyxl",
+    "pypdf",
+    "python-multipart",
+]
+
+[dependency-groups]
+dev = [
+    "workers-py>=1.17.2",
+    "workers-runtime-sdk",
+]

@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "automacao-po-comex",
+  "main": "app/worker.py",
+  "compatibility_date": "2026-09-11",
+  "compatibility_flags": ["python_workers"],
+  "base_dir": "app",
+  "find_additional_modules": true,
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["web/templates/**/*.html"],
+      "fallthrough": false
+    },
+    {
+      "type": "Data",
+      "globs": [
+        "web/static/**/*.css",
+        "resources/**/*.png",
+        "resources/**/*.xlsx"
+      ],
+      "fallthrough": false
+    }
+  ],
+  "python_modules": {
+    "excludes": ["**/*.pyc", "**/__pycache__"]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

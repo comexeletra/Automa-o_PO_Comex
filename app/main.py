@@ -1,24 +1,25 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from time import perf_counter
-from uuid import UUID, uuid4
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, File, Request, UploadFile
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.config import settings
+from app.config import APP_ROOT, settings
 from app.exceptions import PurchaseOrderError
 from app.services.processor import process_purchase_order
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 app = FastAPI(title="Conversor Pedido TOTVS")
-app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
-app.mount("/assets", StaticFiles(directory="assets"), name="assets")
-templates = Jinja2Templates(directory="app/web/templates")
+app.mount("/static", StaticFiles(directory=APP_ROOT / "web" / "static"), name="static")
+app.mount("/assets", StaticFiles(directory=APP_ROOT / "resources"), name="assets")
+templates = Jinja2Templates(directory=APP_ROOT / "web" / "templates")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -38,38 +39,26 @@ async def process(request: Request, file: UploadFile = File(...)):
     content = await file.read()
     if len(content) > settings.max_upload_mb * 1024 * 1024 or not content.startswith(b"%PDF-"):
         return templates.TemplateResponse(request, "error.html", {"message": "O PDF excede o tamanho permitido ou possui assinatura inválida."}, status_code=400)
-    job_id = str(uuid4())
-    job_dir = settings.storage_root / "jobs" / job_id
-    job_dir.mkdir(parents=True, exist_ok=False)
-    input_path, output_path = job_dir / "input.pdf", job_dir / "output.xlsx"
-    input_path.write_bytes(content)
-    started_at = perf_counter()
-    try:
-        result = process_purchase_order(input_path, output_path, settings.template_path)
-    except PurchaseOrderError as exc:
-        logger.exception("Falha no job %s", job_id)
-        return templates.TemplateResponse(request, "error.html", {"message": str(exc)}, status_code=422)
-    processing_seconds = perf_counter() - started_at
-    logger.info("Job %s concluido em %.3f segundos", job_id, processing_seconds)
-    return templates.TemplateResponse(
-        request,
-        "result.html",
-        {
-            "result": result,
-            "job_id": job_id,
-            "scs": result.sc_numbers,
-            "processing_seconds": processing_seconds,
-        },
+    # Workers expose only an ephemeral filesystem. Generate the workbook in a
+    # request-scoped directory and return it immediately, rather than keeping a
+    # job under storage/ for a later download request.
+    with TemporaryDirectory(prefix="totvs-po-") as directory:
+        job_dir = Path(directory)
+        input_path, output_path = job_dir / "input.pdf", job_dir / "output.xlsx"
+        input_path.write_bytes(content)
+        started_at = perf_counter()
+        try:
+            result = process_purchase_order(input_path, output_path, settings.template_path)
+        except PurchaseOrderError as exc:
+            logger.exception("Falha ao processar o pedido")
+            return templates.TemplateResponse(request, "error.html", {"message": str(exc)}, status_code=422)
+        processing_seconds = perf_counter() - started_at
+        workbook = output_path.read_bytes()
+
+    filename = f"pedido_totvs_{result.po.po_number}.xlsx"
+    logger.info("Pedido %s concluído em %.3f segundos", result.po.po_number, processing_seconds)
+    return Response(
+        content=workbook,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
-
-
-@app.get("/download/{job_id}")
-def download(job_id: str):
-    try:
-        UUID(job_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail="Arquivo não encontrado") from exc
-    output = settings.storage_root / "jobs" / job_id / "output.xlsx"
-    if not output.is_file():
-        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
-    return FileResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename="pedido_totvs.xlsx")

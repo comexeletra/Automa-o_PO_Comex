@@ -1,6 +1,10 @@
 .venv/
+.cloudflare-venv/
+.venv-workers/
 __pycache__/
 .pytest_cache/
+.wrangler/
+python_modules/
 storage/jobs/
 storage/completed/
 storage/error/
