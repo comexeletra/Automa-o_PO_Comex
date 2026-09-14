@@ -10,6 +10,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
+from openpyxl.styles import Side
 from openpyxl.utils import get_column_letter
 
 try:  # Local package execution
@@ -52,6 +53,14 @@ def _copy_row_style(ws, source: int, destination: int) -> None:
         destination_cell.number_format = source_cell.number_format
         destination_cell.protection = copy(source_cell.protection)
         destination_cell.alignment = copy(source_cell.alignment)
+
+
+def _apply_item_row_style(ws, source: int, destination: int) -> None:
+    """Apply the canonical data-row style to every item in the table."""
+    ws.row_dimensions[destination].height = ws.row_dimensions[source].height
+    for col in range(2, 20):
+        source_cell, destination_cell = ws.cell(source, col), ws.cell(destination, col)
+        destination_cell._style = copy(source_cell._style)
 
 
 def _insert_row_dimensions(ws, start_row: int, amount: int) -> None:
@@ -156,6 +165,30 @@ def _set_lower_direct_fields(ws, lower_start: int, po: PurchaseOrder) -> None:
             ws.cell(remarks_row + 7, 1).value = f"Payment Terms: {po.payment_terms}"
 
 
+def _restore_signature_lines(ws, lower_start: int) -> None:
+    """Keep signature lines visible after the approval block is repositioned."""
+    line = Side(style="thin", color="000000")
+    labels = {"operations director", "ceo"}
+    for row in ws.iter_rows(min_row=lower_start):
+        for cell in row:
+            if _norm(cell.value) not in labels:
+                continue
+            signature_range = next(
+                (
+                    merged
+                    for merged in ws.merged_cells.ranges
+                    if merged.min_row == cell.row and merged.min_col == cell.column
+                ),
+                None,
+            )
+            end_col = signature_range.max_col if signature_range is not None else cell.column
+            for col in range(cell.column, end_col + 1):
+                target = ws.cell(cell.row, col)
+                border = copy(target.border)
+                border.top = line
+                target.border = border
+
+
 def _validate_output(path: Path, po: PurchaseOrder) -> None:
     wb = load_workbook(path, data_only=False, keep_links=False)
     try:
@@ -203,6 +236,9 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
         # and spacer rows, which carry currency number formats in this template.
         _insert_row_dimensions(ws, total_row, delta)
         ws.insert_rows(total_row, delta)
+        # Materialize cells covered by stale merge references. openpyxl keeps
+        # those references after an insertion, and needs the cells present
+        # before they can be safely unmerged and recreated below.
         for row in range(total_row, total_row + delta):
             _copy_row_style(ws, total_row - 1, row)
     elif delta < 0:
@@ -212,6 +248,8 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
     _translate_merges(ws, item_start, lower_start, total_row, len(po.items), delta)
     total_row = item_start + len(po.items)
     lower_start = total_row + 2
+    for row in range(item_start, total_row):
+        _apply_item_row_style(ws, item_start, row)
     for row in range(item_start, total_row):
         _clear_row(ws, row)
     for offset, item in enumerate(po.items):
@@ -240,6 +278,7 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
     total_money_cell.number_format = "#,##0.00"
     _write_header_values(ws, po)
     _set_lower_direct_fields(ws, lower_start, po)
+    _restore_signature_lines(ws, lower_start)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
     wb.close()

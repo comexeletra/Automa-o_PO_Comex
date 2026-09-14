@@ -55,6 +55,10 @@ def test_writer_extends_item_area_before_total_without_currency_format(tmp_path)
     # style rather than the total/approval rows' currency format.
     assert ws["B212"].value == 194
     assert ws["B212"].number_format == "0"
+    assert ws["B212"].font.sz == ws["B19"].font.sz == 14
+    assert ws["B212"]._style.borderId == ws["B19"]._style.borderId
+    assert ws["C214"].font.sz == ws["C19"].font.sz == 14
+    assert ws["C214"]._style.borderId == ws["C19"]._style.borderId
     assert ws["B224"].value == 206
     assert Decimal(str(ws["N225"].value)) == Decimal("7.41")
     assert ws["A227"].value == "APPROVAL"
@@ -62,3 +66,5 @@ def test_writer_extends_item_area_before_total_without_currency_format(tmp_path)
     # merged cells and drawings; otherwise the section becomes visually skewed.
     assert ws.row_dimensions[229].height is None
     assert ws.row_dimensions[242].height == 15.75
+    for cell in ("I231", "J231", "K231", "I238", "J238"):
+        assert ws[cell].border.top.style == "thin"
