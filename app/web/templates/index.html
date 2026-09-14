@@ -20,7 +20,7 @@
         <label class="upload-field" for="pdf-file">
           <span class="upload-icon" aria-hidden="true">↑</span>
           <span class="upload-title">Selecione o PDF do pedido</span>
-          <span class="upload-help">Arquivos PDF de até 20 MB</span>
+          <span class="upload-help">Arquivos PDF de até {{ max_upload_mb }} MB</span>
           <span class="upload-control">
             <span class="upload-button">Escolher arquivo</span>
             <span id="file-name" class="file-name" aria-live="polite">Nenhum arquivo selecionado</span>
@@ -40,6 +40,7 @@
     const form = document.querySelector('form');
     const processButton = form.querySelector('button[type="submit"]');
     const processingTimer = document.getElementById('processing-timer');
+    const maxUploadBytes = {{ max_upload_mb }} * 1024 * 1024;
 
     fileInput.addEventListener('change', () => {
       const selectedFile = fileInput.files[0];
@@ -49,6 +50,11 @@
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (fileInput.files[0]?.size > maxUploadBytes) {
+        processingTimer.hidden = false;
+        processingTimer.textContent = 'O PDF deve ter no máximo {{ max_upload_mb }} MB.';
+        return;
+      }
       const startedAt = performance.now();
       processButton.disabled = true;
       processButton.textContent = 'Processando pedido...';

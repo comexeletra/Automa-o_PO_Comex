@@ -36,7 +36,7 @@ templates = Jinja2Templates(directory=APP_ROOT / "web" / "templates")
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+    return templates.TemplateResponse(request, "index.html", {"max_upload_mb": settings.max_upload_mb})
 
 
 @app.get("/health")
@@ -54,8 +54,10 @@ async def process(request: Request, file: UploadFile = File(...)):
     if file.content_type not in {"application/pdf", "application/x-pdf"} or not (file.filename or "").lower().endswith(".pdf"):
         return templates.TemplateResponse(request, "error.html", {"message": "Envie apenas um arquivo PDF válido."}, status_code=400)
     content = await file.read()
-    if len(content) > settings.max_upload_mb * 1024 * 1024 or not content.startswith(b"%PDF-"):
-        return templates.TemplateResponse(request, "error.html", {"message": "O PDF excede o tamanho permitido ou possui assinatura inválida."}, status_code=400)
+    if len(content) > settings.max_upload_mb * 1024 * 1024:
+        return templates.TemplateResponse(request, "error.html", {"message": f"O PDF excede o limite de {settings.max_upload_mb} MB."}, status_code=413)
+    if not content.startswith(b"%PDF-"):
+        return templates.TemplateResponse(request, "error.html", {"message": "O PDF possui assinatura inválida."}, status_code=400)
     # Workers expose only an ephemeral filesystem. Generate the workbook in a
     # request-scoped directory and return it immediately, rather than keeping a
     # job under storage/ for a later download request.
@@ -71,6 +73,13 @@ async def process(request: Request, file: UploadFile = File(...)):
             return templates.TemplateResponse(request, "error.html", {"message": str(exc)}, status_code=422)
         processing_seconds = perf_counter() - started_at
         workbook = output_path.read_bytes()
+        if len(workbook) > settings.max_output_mb * 1024 * 1024:
+            return templates.TemplateResponse(
+                request,
+                "error.html",
+                {"message": f"A planilha gerada excede o limite de {settings.max_output_mb} MB para download."},
+                status_code=413,
+            )
 
     filename = f"pedido_totvs_{result.po.po_number}.xlsx"
     logger.info("Pedido %s concluído em %.3f segundos", result.po.po_number, processing_seconds)

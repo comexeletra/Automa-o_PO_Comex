@@ -46,6 +46,8 @@ uvicorn app.main:app --reload
 
 Abra `http://127.0.0.1:8000`.
 
+Por padrão, a interface aceita PDFs de até 4 MB e entrega planilhas de até 4 MB. Esses limites deixam margem em relação ao teto de 4,5 MB por requisição ou resposta das Vercel Functions; arquivos maiores recebem uma mensagem de erro. As variáveis `MAX_UPLOAD_MB` e `MAX_OUTPUT_MB` permitem configurar os limites, mas valores acima de 4 MB exigem outro fluxo de upload/download na Vercel.
+
 ## Watcher opcional
 
 ```powershell
@@ -58,6 +60,32 @@ Ele usa as pastas `storage/incoming`, `storage/processing`, `storage/completed` 
 ## Limitação atual
 
 O parser é deliberadamente restritivo: espera PDF TOTVS textual com as colunas do layout especificado. Para layout diferente, ele falha com `UNSUPPORTED_TOTVS_PDF_LAYOUT` em vez de produzir planilha possivelmente incorreta. OCR não faz parte deste MVP.
+
+## Vercel
+
+O deploy da primeira versão na Vercel usa o runtime **Python** com a instância
+FastAPI existente em `app/main.py`. Não use Edge Runtime: o conversor depende de
+arquivos temporários e de bibliotecas Python. `pyproject.toml` declara o
+entrypoint explicitamente e `vercel.json` reserva até 60 segundos para a
+Function; os diretórios de templates, estáticos e recursos continuam montados
+pela aplicação.
+
+Os arquivos de trabalho são criados por requisição e descartados ao final. Em
+produção, o sistema de arquivos é somente leitura, exceto por `/tmp`; não use
+esse diretório como armazenamento persistente. Mantenha `MAX_UPLOAD_MB` e
+`MAX_OUTPUT_MB` em até 4 MB: a Vercel limita tanto o corpo da requisição quanto
+a resposta da Function a 4,5 MB.
+
+Valide localmente antes de criar um preview:
+
+```powershell
+python -B -m pytest -q -p no:cacheprovider
+vercel dev
+```
+
+Depois, valide no preview as rotas `/`, `/health`, `/static`, `/assets` e a
+conversão do PDF de referência antes de qualquer promoção para produção. Não
+remova os arquivos de Cloudflare enquanto a alternativa não estiver aceita.
 
 ## Cloudflare Workers
 

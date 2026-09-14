@@ -1,7 +1,7 @@
 [project]
 name = "automacao-po-comex"
 version = "0.1.0"
-description = "Conversor de pedidos TOTVS para Excel executado no Cloudflare Workers"
+description = "Conversor de pedidos TOTVS para Excel executado com FastAPI"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi",
@@ -10,6 +10,11 @@ dependencies = [
     "pypdf",
     "python-multipart",
 ]
+
+[tool.vercel]
+# Keep the deployment entrypoint explicit. The same FastAPI app continues to
+# work locally and with the existing Cloudflare adapter.
+entrypoint = "app.main:app"
 
 [dependency-groups]
 dev = [
