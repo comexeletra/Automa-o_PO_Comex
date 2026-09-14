@@ -89,6 +89,14 @@ def _delete_row_dimensions(ws, start_row: int, amount: int) -> None:
 def _translate_merges(ws, item_start: int, lower_start: int, total_row: int, new_count: int, delta: int) -> None:
     original = list(ws.merged_cells.ranges)
     for merge in original:
+        # ``insert_rows`` and ``delete_rows`` move the cell objects but leave
+        # merged-range references at their original coordinates.  Consequently
+        # a stale range may point at a coordinate that is absent from
+        # ``ws._cells``.  ``openpyxl.unmerge_cells`` deletes every interior
+        # coordinate and otherwise raises KeyError (for example, B212).
+        # Materialize all coordinates first, then safely rebuild the merges.
+        for row, column in merge.cells:
+            ws.cell(row=row, column=column)
         ws.unmerge_cells(str(merge))
     for merge in original:
         min_col, min_row, max_col, max_row = merge.bounds

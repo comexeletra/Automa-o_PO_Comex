@@ -6,7 +6,7 @@ from zipfile import ZipFile
 from openpyxl import Workbook, load_workbook
 
 from app.models import PurchaseOrder, PurchaseOrderItem
-from app.services.excel_writer import write_purchase_order
+from app.services.excel_writer import _translate_merges, write_purchase_order
 
 
 def _template(path: Path) -> None:
@@ -45,6 +45,18 @@ def test_writer_shrinks_item_area(tmp_path):
     write_purchase_order(_po(1), template, output)
     ws = load_workbook(output)["Material for production"]
     assert ws["A22"].value == "APPROVAL"
+
+
+def test_translate_merges_recovers_missing_stale_merge_cell():
+    """A stale merge after row movement must not raise KeyError in openpyxl."""
+    wb = Workbook()
+    ws = wb.active
+    ws.merge_cells("A3:C3")
+    del ws._cells[(3, 2)]  # Same incomplete internal state as the production failure.
+
+    _translate_merges(ws, item_start=10, lower_start=20, total_row=19, new_count=1, delta=0)
+
+    assert "A3:C3" in {str(merged) for merged in ws.merged_cells.ranges}
 
 
 def test_writer_extends_item_area_before_total_without_currency_format(tmp_path):
