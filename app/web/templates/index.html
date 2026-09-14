@@ -19,7 +19,7 @@
       <form action="/process" method="post" enctype="multipart/form-data">
         <label class="upload-field" for="pdf-file">
           <span class="upload-icon" aria-hidden="true">↑</span>
-          <span class="upload-title">Selecione o PDF do pedido</span>
+          <span class="upload-title">Arraste e solte o PDF do pedido</span>
           <span class="upload-help">Arquivos PDF de até {{ max_upload_mb }} MB</span>
           <span class="upload-control">
             <span class="upload-button">Escolher arquivo</span>
@@ -42,10 +42,48 @@
     const processingTimer = document.getElementById('processing-timer');
     const maxUploadBytes = {{ max_upload_mb }} * 1024 * 1024;
 
-    fileInput.addEventListener('change', () => {
-      const selectedFile = fileInput.files[0];
+    const showSelectedFile = (selectedFile) => {
       fileName.textContent = selectedFile ? selectedFile.name : 'Nenhum arquivo selecionado';
       uploadField.classList.toggle('has-file', Boolean(selectedFile));
+      uploadField.classList.remove('is-dragging');
+    };
+
+    fileInput.addEventListener('change', () => {
+      showSelectedFile(fileInput.files[0]);
+      processingTimer.hidden = true;
+    });
+
+    const isPdf = (file) => file && (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+
+    ['dragenter', 'dragover'].forEach((eventName) => {
+      uploadField.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        uploadField.classList.add('is-dragging');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach((eventName) => {
+      uploadField.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        uploadField.classList.remove('is-dragging');
+      });
+    });
+
+    uploadField.addEventListener('drop', (event) => {
+      const droppedFile = event.dataTransfer.files[0];
+      if (!droppedFile) return;
+
+      if (!isPdf(droppedFile)) {
+        processingTimer.hidden = false;
+        processingTimer.textContent = 'Solte apenas um arquivo PDF v\u00e1lido.';
+        return;
+      }
+
+      const transfer = new DataTransfer();
+      transfer.items.add(droppedFile);
+      fileInput.files = transfer.files;
+      processingTimer.hidden = true;
+      showSelectedFile(droppedFile);
     });
 
     form.addEventListener('submit', async (event) => {
