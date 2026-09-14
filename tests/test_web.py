@@ -45,7 +45,9 @@ def test_generated_workbook_above_vercel_safe_limit_is_rejected(monkeypatch):
 def test_reference_pdf_download_fits_vercel_safe_limit():
     client = TestClient(app)
     pdf = Path("samples/sample_po_027956.pdf").read_bytes()
-    response = client.post("/process", files={"file": ("sample.pdf", pdf, "application/pdf")})
+    pdf_name = "PO 027956 - SEA OCT.2026.pdf"
+    response = client.post("/process", files={"file": (pdf_name, pdf, "application/pdf")})
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert response.headers["content-disposition"] == 'attachment; filename="PO 027956 - SEA OCT.2026.xlsx"'
     assert len(response.content) <= 4 * 1024 * 1024

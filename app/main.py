@@ -34,6 +34,15 @@ app.mount("/assets", StaticFiles(directory=APP_ROOT / "resources"), name="assets
 templates = Jinja2Templates(directory=APP_ROOT / "web" / "templates")
 
 
+def _workbook_filename(upload_filename: str | None) -> str:
+    """Keep the uploaded PDF title when naming the generated workbook."""
+    title = Path(upload_filename or "").stem.strip()
+    # Header values must not contain control characters or a quoted-string
+    # delimiter. Browsers normally provide a basename, but sanitize it here too.
+    title = title.replace("\\", "_").replace('"', "_").replace("\r", "_").replace("\n", "_")
+    return f"{title or 'pedido_totvs'}.xlsx"
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse(request, "index.html", {"max_upload_mb": settings.max_upload_mb})
@@ -81,7 +90,7 @@ async def process(request: Request, file: UploadFile = File(...)):
                 status_code=413,
             )
 
-    filename = f"pedido_totvs_{result.po.po_number}.xlsx"
+    filename = _workbook_filename(file.filename)
     logger.info("Pedido %s concluído em %.3f segundos", result.po.po_number, processing_seconds)
     return Response(
         content=workbook,
