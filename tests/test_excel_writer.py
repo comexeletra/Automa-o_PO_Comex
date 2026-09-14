@@ -58,3 +58,7 @@ def test_writer_extends_item_area_before_total_without_currency_format(tmp_path)
     assert ws["B224"].value == 206
     assert Decimal(str(ws["N225"].value)) == Decimal("7.41")
     assert ws["A227"].value == "APPROVAL"
+    # The signature block's custom row heights must move together with its
+    # merged cells and drawings; otherwise the section becomes visually skewed.
+    assert ws.row_dimensions[229].height is None
+    assert ws.row_dimensions[242].height == 15.75

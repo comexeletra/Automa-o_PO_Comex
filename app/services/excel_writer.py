@@ -54,6 +54,29 @@ def _copy_row_style(ws, source: int, destination: int) -> None:
         destination_cell.alignment = copy(source_cell.alignment)
 
 
+def _insert_row_dimensions(ws, start_row: int, amount: int) -> None:
+    """Move custom row dimensions because openpyxl only moves cell values."""
+    dimensions = [(row, copy(dimension)) for row, dimension in ws.row_dimensions.items() if row >= start_row]
+    for row, _ in dimensions:
+        del ws.row_dimensions[row]
+    for row, dimension in dimensions:
+        dimension.index = row + amount
+        ws.row_dimensions[row + amount] = dimension
+
+
+def _delete_row_dimensions(ws, start_row: int, amount: int) -> None:
+    """Remove dimensions for deleted rows and move the lower layout upward."""
+    dimensions = [(row, copy(dimension)) for row, dimension in ws.row_dimensions.items() if row >= start_row]
+    for row, _ in dimensions:
+        del ws.row_dimensions[row]
+    first_remaining_row = start_row + amount
+    for row, dimension in dimensions:
+        if row < first_remaining_row:
+            continue
+        dimension.index = row - amount
+        ws.row_dimensions[row - amount] = dimension
+
+
 def _translate_merges(ws, item_start: int, lower_start: int, total_row: int, new_count: int, delta: int) -> None:
     original = list(ws.merged_cells.ranges)
     for merge in original:
@@ -178,11 +201,14 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
         # Extend the item block immediately before the total row. Inserting at
         # the approval block would make the first new items overwrite the total
         # and spacer rows, which carry currency number formats in this template.
+        _insert_row_dimensions(ws, total_row, delta)
         ws.insert_rows(total_row, delta)
         for row in range(total_row, total_row + delta):
             _copy_row_style(ws, total_row - 1, row)
     elif delta < 0:
-        ws.delete_rows(item_start + len(po.items), -delta)
+        first_deleted_row = item_start + len(po.items)
+        _delete_row_dimensions(ws, first_deleted_row, -delta)
+        ws.delete_rows(first_deleted_row, -delta)
     _translate_merges(ws, item_start, lower_start, total_row, len(po.items), delta)
     total_row = item_start + len(po.items)
     lower_start = total_row + 2
