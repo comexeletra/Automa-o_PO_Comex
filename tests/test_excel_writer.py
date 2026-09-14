@@ -45,3 +45,16 @@ def test_writer_shrinks_item_area(tmp_path):
     write_purchase_order(_po(1), template, output)
     ws = load_workbook(output)["Material for production"]
     assert ws["A22"].value == "APPROVAL"
+
+
+def test_writer_extends_item_area_before_total_without_currency_format(tmp_path):
+    output = tmp_path / "result.xlsx"
+    write_purchase_order(_po(206), Path("app/resources/po_template.xlsx"), output)
+    ws = load_workbook(output, data_only=False)["Material for production"]
+    # The original template supports 193 rows. Extra rows must use the item-row
+    # style rather than the total/approval rows' currency format.
+    assert ws["B212"].value == 194
+    assert ws["B212"].number_format == "0"
+    assert ws["B224"].value == 206
+    assert Decimal(str(ws["N225"].value)) == Decimal("7.41")
+    assert ws["A227"].value == "APPROVAL"

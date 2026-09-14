@@ -175,8 +175,11 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
         raise ExcelTemplateError("Bloco de itens inválido no template.")
     delta = len(po.items) - capacity
     if delta > 0:
-        ws.insert_rows(lower_start, delta)
-        for row in range(lower_start, lower_start + delta):
+        # Extend the item block immediately before the total row. Inserting at
+        # the approval block would make the first new items overwrite the total
+        # and spacer rows, which carry currency number formats in this template.
+        ws.insert_rows(total_row, delta)
+        for row in range(total_row, total_row + delta):
             _copy_row_style(ws, total_row - 1, row)
     elif delta < 0:
         ws.delete_rows(item_start + len(po.items), -delta)
@@ -188,6 +191,10 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
     for offset, item in enumerate(po.items):
         row = item_start + offset
         ws.cell(row, 2).value = item.sequence
+        # Number formats in the rows below the original item area belong to
+        # totals and approval sections. Set every output field explicitly so
+        # any PDF item count can safely grow or shrink the table.
+        ws.cell(row, 2).number_format = "0"
         ws.cell(row, 3).value = item.product_code  # identifier, intentionally text
         ws.cell(row, 3).number_format = "@"
         ws.cell(row, 6).value = item.description
