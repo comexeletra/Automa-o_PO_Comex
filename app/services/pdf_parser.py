@@ -52,6 +52,9 @@ class TotvsPdfLayout:
 _ITEM = re.compile(r"^\d{3}$")
 _CODE = re.compile(r"^\d{10}$")
 _NUMBER = re.compile(r"^-?[\d.]+,\d+$")
+_NUMBER_IN_TEXT = re.compile(r"-?[\d.]+,\d+")
+_UNIT_PRICE = re.compile(r"^(-?[\d.]+,\d{7})(?:\d+,\d+)?$")
+_DATE = re.compile(r"\d{2}/\d{2}/\d{4}")
 
 
 def _lines(page) -> list[list[tuple[float, float, float, str]]]:
@@ -61,7 +64,11 @@ def _lines(page) -> list[list[tuple[float, float, float, str]]]:
     def visitor(text, _cm, tm, _font, font_size):
         if not text or tm is None:
             return
-        x0, y0 = float(tm[4]), float(tm[5])
+        x0 = float(tm[4])
+        # Keep the raw X coordinate for the established layout boundaries,
+        # but use the graphics-transformed Y coordinate to retain the visual
+        # top-to-bottom order when a producer flips or scales its text layer.
+        y0 = float(tm[4]) * float(_cm[1]) + float(tm[5]) * float(_cm[3]) + float(_cm[5])
         # PDFs usually emit a visitor event per word. When a producer combines
         # words, distribute them using a conservative glyph-width estimate.
         for match in re.finditer(r"\S+", text):
@@ -99,10 +106,80 @@ def _unit_price(row: list[tuple[float, float, float, str]], layout: TotvsPdfLayo
     layout have seven decimal places, followed by the IPI such as ``1,30``.
     """
     text = _text_between(row, layout.unit_price_x0, layout.ip_x0).replace(" ", "")
-    match = re.match(r"^(-?[\d.]+,\d{7})(?:\d+,\d+)?$", text)
+    match = _UNIT_PRICE.match(text)
     if not match:
         raise ValueError(f"Preço unitário ausente ou inválido: {text!r}")
     return parse_ptbr_decimal(match.group(1))
+
+
+def _item_values_by_token_order(
+    row: list[tuple[float, float, float, str]], code_pos: int
+) -> dict[str, object]:
+    """Read a TOTVS row when its PDF text coordinates have been scaled.
+
+    Some TOTVS generators apply a graphics transformation to the text layer.
+    pypdf exposes the untransformed coordinates, so fixed column boundaries no
+    longer match despite the visible table retaining the same column order.
+    """
+    tokens = [word for _x, _y, _right, word in row]
+    # The unit is not fixed (it can be U, UN, KG, PC, etc.). Locate the
+    # seven-decimal unit price first; TOTVS places quantity and a possible
+    # second-unit quantity immediately before it.
+    unit_price_pos = next(
+        (i for i in range(code_pos + 1, len(tokens)) if _UNIT_PRICE.match(tokens[i].replace(" ", ""))),
+        None,
+    )
+    if unit_price_pos is None:
+        raise ValueError("PreÃ§o unitÃ¡rio do item nÃ£o identificado.")
+
+    numeric_before_price = [
+        i for i in range(code_pos + 1, unit_price_pos) if _NUMBER.fullmatch(tokens[i].replace(" ", ""))
+    ]
+    if not numeric_before_price:
+        raise ValueError("Quantidade do item nÃ£o identificada.")
+    # In the standard TOTVS table the last decimal before the price is the
+    # 2nd-unit quantity (normally 0,000). When it is zero, quantity is the
+    # preceding decimal; otherwise that last decimal is the quantity itself.
+    last_numeric = numeric_before_price[-1]
+    quantity_pos = numeric_before_price[-2] if (
+        len(numeric_before_price) > 1 and parse_ptbr_decimal(tokens[last_numeric]) == 0
+    ) else last_numeric
+    unit_pos = quantity_pos - 1
+    if unit_pos <= code_pos or _NUMBER.fullmatch(tokens[unit_pos].replace(" ", "")):
+        raise ValueError("Unidade do item nÃ£o identificada.")
+
+    total_candidates: list[str] = []
+    delivery = None
+    date_pos = None
+    for i in range(unit_price_pos + 1, len(tokens)):
+        text = tokens[i].replace(" ", "")
+        date_match = _DATE.search(tokens[i])
+        if date_match:
+            # This PDF generator glues the total and delivery date together;
+            # remove the date before parsing the decimal total.
+            text = text[:date_match.start()]
+        total_candidates.extend(_NUMBER_IN_TEXT.findall(text))
+        if date_match:
+            delivery = date_match.group(0)
+            date_pos = i
+            break
+    if not total_candidates:
+        raise ValueError("Total do item nÃ£o identificado.")
+
+    trailing_tokens = tokens[date_pos + 1:] if date_pos is not None else []
+    numeric_trailing = [token.replace(" ", "") for token in trailing_tokens if token.replace(" ", "").isdigit()]
+    unit_price_match = _UNIT_PRICE.match(tokens[unit_price_pos])
+    assert unit_price_match is not None
+    return {
+        "description": " ".join(tokens[code_pos + 1:unit_pos]),
+        "unit": tokens[unit_pos],
+        "quantity": parse_ptbr_decimal(tokens[quantity_pos]),
+        "unit_price": parse_ptbr_decimal(unit_price_match.group(1)),
+        "total": parse_ptbr_decimal(total_candidates[-1]),
+        "delivery": delivery,
+        "cc": numeric_trailing[0] if numeric_trailing else None,
+        "sc": numeric_trailing[1] if len(numeric_trailing) > 1 else None,
+    }
 
 
 def _find_label_value(text: str, labels: tuple[str, ...], pattern: str) -> str | None:
@@ -124,7 +201,7 @@ def _date(value: str | None):
 
 def _metadata(text: str) -> dict[str, object | None]:
     # pypdf preserves the purchase-order heading and its number on one line.
-    po_match = re.search(r"\b(\d{6,})\s*/\d+", text)
+    po_match = re.search(r"(\d{6,})\s*/\d+", text)
     po = po_match.group(1) if po_match else _find_label_value(text, (r"Pedido(?:\s+de\s+Compra)?",), r"\s*(?:N[ºo.]*)?\s*[:#]?\s*(\d{4,})")
     issue_match = re.search(r"Data\s+de\s+Emiss[aã]o(?:[^\n]*\n){0,4}?\s*(\d{2}/\d{2}/\d{4})", text, re.IGNORECASE)
     issue = issue_match.group(1) if issue_match else _find_label_value(text, (r"Data\s+de\s+Emiss[aã]o",), r"\s*[:#]?\s*(\d{2}/\d{2}/\d{4})")
@@ -170,27 +247,44 @@ def parse_purchase_order(pdf_path: Path, layout: TotvsPdfLayout = TotvsPdfLayout
                     if current:
                         items.append(_to_item(current))
                     product_code = tokens[code_pos]
+                    fallback_values = None
                     try:
                         quantity = _first_number(row, layout.quantity_x0, layout.quantity_x1)
                         unit_price = _unit_price(row, layout)
                         total_value = _first_number(row, layout.total_x0, layout.delivery_x0)
                     except ValueError as exc:
-                        raise UnsupportedLayoutError("UNSUPPORTED_TOTVS_PDF_LAYOUT") from exc
+                        try:
+                            fallback_values = _item_values_by_token_order(row, code_pos)
+                        except ValueError as fallback_exc:
+                            raise UnsupportedLayoutError("UNSUPPORTED_TOTVS_PDF_LAYOUT") from fallback_exc
+                        quantity = fallback_values["quantity"]
+                        unit_price = fallback_values["unit_price"]
+                        total_value = fallback_values["total"]
                     current = {"group": tokens[item_pos], "sequence": len(items) + 1, "code": product_code,
-                               "description": [_text_between(row, layout.description_x0, layout.description_x1)],
-                               "unit": _text_between(row, layout.unit_x0, layout.quantity_x0) or None,
+                               "description": [fallback_values["description"] if fallback_values else _text_between(row, layout.description_x0, layout.description_x1)],
+                               "unit": fallback_values["unit"] if fallback_values else _text_between(row, layout.unit_x0, layout.quantity_x0) or None,
                                "quantity": quantity, "unit_price": unit_price, "total": total_value,
-                               "delivery": _text_between(row, layout.delivery_x0, layout.cc_x0),
-                               "cc": _text_between(row, layout.cc_x0, layout.sc_x0) or None,
-                               "sc": _text_between(row, layout.sc_x0, 1000).replace(" ", "") or None}
+                               "delivery": fallback_values["delivery"] if fallback_values else _text_between(row, layout.delivery_x0, layout.cc_x0),
+                               "cc": fallback_values["cc"] if fallback_values else _text_between(row, layout.cc_x0, layout.sc_x0) or None,
+                               "sc": fallback_values["sc"] if fallback_values else _text_between(row, layout.sc_x0, 1000).replace(" ", "") or None,
+                               "token_order": fallback_values is not None}
                 elif current:
-                    description = _text_between(row, layout.description_x0, layout.description_x1)
+                    if current.get("token_order"):
+                        continuation = tokens[:]
+                        tail = continuation[-1] if continuation else ""
+                        if tail.isdigit() and len(tail) <= 2 and current.get("sc") and len(str(current["sc"])) < 6:
+                            current["sc"] = str(current["sc"]) + tail
+                            continuation.pop()
+                        description = " ".join(continuation)
+                    else:
+                        description = _text_between(row, layout.description_x0, layout.description_x1)
                     # Continuations have no next item and stay strictly inside the description column.
                     if description and not re.search(r"continua|continuacao|pagina\s*\.*", _normalized(description)):
                         current["description"].append(description)  # type: ignore[index]
-                    tail = _text_between(row, layout.sc_x0, 1000).replace(" ", "")
-                    if tail.isdigit() and len(tail) <= 2 and current.get("sc"):
-                        current["sc"] = str(current["sc"]) + tail
+                    if not current.get("token_order"):
+                        tail = _text_between(row, layout.sc_x0, 1000).replace(" ", "")
+                        if tail.isdigit() and len(tail) <= 2 and current.get("sc"):
+                            current["sc"] = str(current["sc"]) + tail
             if current:
                 items.append(_to_item(current))
         if not items:
