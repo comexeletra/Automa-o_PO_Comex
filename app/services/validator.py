@@ -10,9 +10,9 @@ except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
 
 def validate_purchase_order(po: PurchaseOrder) -> tuple[str, ...]:
     if not po.po_number:
-        raise ValidationError("Número do pedido não identificado.")
+        raise ValidationError("Número da PO não identificado.")
     if not po.items:
-        raise ValidationError("O arquivo foi lido, mas nenhum item de pedido foi identificado.")
+        raise ValidationError("O arquivo foi lido, mas nenhum item da PO foi identificado.")
     warnings: list[str] = []
     for item in po.items:
         if not item.product_code:

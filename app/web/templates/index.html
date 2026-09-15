@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/static/style.css">
-  <title>Conversor Pedido TOTVS | Eletra</title>
+  <title>Conversor PO | Eletra</title>
 </head>
 <body>
   <main class="page-shell">
@@ -13,13 +13,13 @@
       <span>Foreign Trade</span>
     </section>
     <section class="converter-card">
-      <p class="eyebrow">AUTOMAÇÃO DE COMPRAS</p>
-      <h1>Conversor de Pedido TOTVS</h1>
-      <p class="intro">Transforme o pedido de compra em uma planilha Excel estruturada, mantendo os dados fiéis ao PDF.</p>
+      <p class="eyebrow">Automação</p>
+      <h1>Conversor PO</h1>
+      <p class="intro">Conversta a PO em Planilha Estruturada para Envio.</p>
       <form action="/process" method="post" enctype="multipart/form-data">
         <label class="upload-field" for="pdf-file">
           <span class="upload-icon" aria-hidden="true">↑</span>
-          <span class="upload-title">Arraste e solte o PDF do pedido</span>
+          <span class="upload-title">Arraste e solte o PDF da PO</span>
           <span class="upload-help">Arquivos PDF de até {{ max_upload_mb }} MB</span>
           <span class="upload-control">
             <span class="upload-button">Escolher arquivo</span>
@@ -28,7 +28,7 @@
           <input class="file-input" id="pdf-file" type="file" name="file" accept="application/pdf,.pdf" required>
         </label>
         <p id="processing-timer" class="processing-timer" role="status" aria-live="polite" hidden></p>
-        <button type="submit">Processar pedido <span aria-hidden="true">→</span></button>
+        <button type="submit">Processar PO <span aria-hidden="true">→</span></button>
       </form>
     </section>
     <p class="footer-note">Dados extraídos exclusivamente do relatório TOTVS.</p>
@@ -95,14 +95,14 @@
       }
       const startedAt = performance.now();
       processButton.disabled = true;
-      processButton.textContent = 'Processando pedido...';
+      processButton.textContent = 'Processando PO...';
       processingTimer.hidden = false;
 
       const updateTimer = () => {
         const elapsedSeconds = Math.floor((performance.now() - startedAt) / 1000);
         const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
         const seconds = String(elapsedSeconds % 60).padStart(2, '0');
-        processingTimer.textContent = `Processando pedido: ${minutes}:${seconds}`;
+        processingTimer.textContent = `Processando PO: ${minutes}:${seconds}`;
       };
 
       updateTimer();
@@ -125,7 +125,7 @@
         const downloadUrl = URL.createObjectURL(workbook);
         const downloadLink = document.createElement('a');
         const filename = response.headers.get('Content-Disposition')
-          ?.match(/filename="?([^";]+)"?/)?.[1] || 'pedido_totvs.xlsx';
+          ?.match(/filename="?([^";]+)"?/)?.[1] || 'po_totvs.xlsx';
 
         downloadLink.href = downloadUrl;
         downloadLink.download = filename;
@@ -143,9 +143,9 @@
         }));
         window.location.assign('/result');
       } catch (error) {
-        console.error('Falha ao processar o pedido:', error);
-        processingTimer.textContent = 'Não foi possível processar o pedido. Tente novamente.';
-        processButton.textContent = 'Processar pedido';
+        console.error('Falha ao processar a PO:', error);
+        processingTimer.textContent = 'Não foi possível processar a PO. Tente novamente.';
+        processButton.textContent = 'Processar PO';
       } finally {
         window.clearInterval(timerId);
         processButton.disabled = false;

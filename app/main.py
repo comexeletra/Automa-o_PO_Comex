@@ -28,7 +28,7 @@ except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-app = FastAPI(title="Conversor Pedido TOTVS")
+app = FastAPI(title="Conversor PO")
 app.mount("/static", StaticFiles(directory=APP_ROOT / "web" / "static"), name="static")
 app.mount("/assets", StaticFiles(directory=APP_ROOT / "resources"), name="assets")
 templates = Jinja2Templates(directory=APP_ROOT / "web" / "templates")
@@ -40,7 +40,7 @@ def _workbook_filename(upload_filename: str | None) -> str:
     # Header values must not contain control characters or a quoted-string
     # delimiter. Browsers normally provide a basename, but sanitize it here too.
     title = title.replace("\\", "_").replace('"', "_").replace("\r", "_").replace("\n", "_")
-    return f"{title or 'pedido_totvs'}.xlsx"
+    return f"{title or 'po_totvs'}.xlsx"
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -78,7 +78,7 @@ async def process(request: Request, file: UploadFile = File(...)):
         try:
             result = process_purchase_order(input_path, output_path, settings.template_path)
         except PurchaseOrderError as exc:
-            logger.exception("Falha ao processar o pedido")
+            logger.exception("Falha ao processar a PO")
             return templates.TemplateResponse(request, "error.html", {"message": str(exc)}, status_code=422)
         processing_seconds = perf_counter() - started_at
         workbook = output_path.read_bytes()
@@ -91,7 +91,7 @@ async def process(request: Request, file: UploadFile = File(...)):
             )
 
     filename = _workbook_filename(file.filename)
-    logger.info("Pedido %s concluído em %.3f segundos", result.po.po_number, processing_seconds)
+    logger.info("PO %s concluída em %.3f segundos", result.po.po_number, processing_seconds)
     return Response(
         content=workbook,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

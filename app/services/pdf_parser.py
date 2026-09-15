@@ -288,9 +288,9 @@ def parse_purchase_order(pdf_path: Path, layout: TotvsPdfLayout = TotvsPdfLayout
             if current:
                 items.append(_to_item(current))
         if not items:
-            raise UnsupportedLayoutError("O arquivo foi lido, mas nenhum item de pedido foi identificado.")
+            raise UnsupportedLayoutError("O arquivo foi lido, mas nenhum item da PO foi identificado.")
         if not data["po_number"]:
-            raise UnsupportedLayoutError("Número do pedido não identificado.")
+            raise UnsupportedLayoutError("Número da PO não identificado.")
         return PurchaseOrder(po_number=str(data["po_number"]), company_name=data["company_name"], company_cnpj=data["company_cnpj"],
             company_address=None, supplier_name=data["supplier_name"], supplier_code=data["supplier_code"], supplier_address=None,
             issue_date=data["issue_date"], payment_terms=data["payment_terms"], merchandise_total=data["merchandise_total"], items=tuple(items))
