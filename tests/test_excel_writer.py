@@ -58,6 +58,16 @@ def test_compact_layout_hides_internal_only_fields(tmp_path):
     assert all(ws[f"{column}18"].value is None for column in ("P", "Q", "R", "S"))
 
 
+def test_writer_uses_the_processing_date_in_the_date_field(tmp_path, monkeypatch):
+    output = tmp_path / "result.xlsx"
+    monkeypatch.setattr("app.services.excel_writer._conversion_date", lambda: date(2030, 1, 2))
+
+    write_purchase_order(_po(1), Path("app/resources/po_template.xlsx"), output)
+
+    ws = load_workbook(output, data_only=False)["Material for production"]
+    assert ws["J2"].value.date() == date(2030, 1, 2)
+
+
 def test_translate_merges_recovers_missing_stale_merge_cell():
     """A stale merge after row movement must not raise KeyError in openpyxl."""
     wb = Workbook()

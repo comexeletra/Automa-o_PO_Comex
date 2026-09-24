@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from copy import copy
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 import re
@@ -25,10 +26,16 @@ SHEET_NAME = "Material for production"
 ITEM_COLUMNS = range(1, 20)
 COMPACT_HIDDEN_COLUMNS = ("E", "P", "Q", "R", "S")
 COMPACT_REMOVED_SHEET = "Checklist (for Eletra's use)"
+CONVERSION_TIME_ZONE = timezone(timedelta(hours=-3), name="America/Sao_Paulo")
 
 
 def _norm(value: object) -> str:
     return " ".join(str(value or "").lower().split())
+
+
+def _conversion_date():
+    """Use São Paulo's calendar date even when deployed in a UTC runtime."""
+    return datetime.now(CONVERSION_TIME_ZONE).date()
 
 
 def find_row_containing(ws, text: str) -> int | None:
@@ -137,12 +144,19 @@ def _value_cell(ws, row: int, col: int):
 def _write_header_values(ws, po: PurchaseOrder) -> None:
     # Only values next to labels with an unambiguous PDF equivalent are written.
     mappings = {"seller name": po.supplier_name, "buyer name": po.company_name, "buyer cnpj": po.company_cnpj,
-                "date": po.issue_date, "payment terms": po.payment_terms}
+                "date": _conversion_date(), "payment terms": po.payment_terms}
     for row in ws.iter_rows():
         for cell in row:
             label = _norm(cell.value).rstrip(":")
             if label in mappings and mappings[label] is not None:
                 adjacent = ws.cell(cell.row, cell.column + 1)
+                if isinstance(adjacent, MergedCell):
+                    merged = next(
+                        (merged for merged in ws.merged_cells.ranges if merged.min_row <= cell.row <= merged.max_row and merged.min_col <= adjacent.column <= merged.max_col),
+                        None,
+                    )
+                    if merged is not None:
+                        adjacent = ws.cell(cell.row, merged.max_col + 1)
                 if not isinstance(adjacent, MergedCell):
                     adjacent.value = mappings[label]
 
