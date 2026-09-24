@@ -4,11 +4,12 @@ from zipfile import ZipFile
 import pytest
 from openpyxl import load_workbook
 
-from app.services.processor import process_purchase_order
+from app.services.processor import process_purchase_order, process_small_purchase_order
 
 
 PDF = Path("samples/sample_po_027956.pdf")
 TEMPLATE = Path("templates/po_template.xlsx")
+COMPACT_PDF = Path("20188 (1).pdf")
 
 
 @pytest.mark.skipif(not PDF.exists() or not TEMPLATE.exists(), reason="Arquivos de referência não estão disponíveis")
@@ -42,3 +43,18 @@ def test_reference_pdf_to_excel_end_to_end(tmp_path):
         assert not any(name.startswith("xl/externalLinks/") for name in archive.namelist())
         assert "xl/drawings/drawing1.xml" in archive.namelist()
         assert "xl/media/image1.png" in archive.namelist()
+
+
+@pytest.mark.skipif(not COMPACT_PDF.exists() or not TEMPLATE.exists(), reason="PO compacta de referência não disponível")
+def test_compact_pdf_omits_internal_only_fields(tmp_path):
+    output = tmp_path / "PO_031285.xlsx"
+    process_small_purchase_order(COMPACT_PDF, output, TEMPLATE)
+    wb = load_workbook(output, data_only=False, keep_links=False)
+    ws = wb["Material for production"]
+
+    assert all(ws.column_dimensions[column].hidden for column in ("E", "P", "Q", "R", "S"))
+    assert ws["E18"].value is None
+    assert ws["P15"].value is None
+    assert all(ws[f"{column}18"].value is None for column in ("P", "Q", "R", "S"))
+    assert "Checklist (for Eletra's use)" not in wb.sheetnames
+    wb.close()

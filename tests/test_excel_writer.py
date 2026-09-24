@@ -47,6 +47,17 @@ def test_writer_shrinks_item_area(tmp_path):
     assert ws["A22"].value == "APPROVAL"
 
 
+def test_compact_layout_hides_internal_only_fields(tmp_path):
+    template, output = tmp_path / "template.xlsx", tmp_path / "result.xlsx"
+    _template(template)
+    write_purchase_order(_po(1), template, output, compact_layout=True)
+    ws = load_workbook(output)["Material for production"]
+
+    assert all(ws.column_dimensions[column].hidden for column in ("E", "P", "Q", "R", "S"))
+    assert ws["E18"].value is None
+    assert all(ws[f"{column}18"].value is None for column in ("P", "Q", "R", "S"))
+
+
 def test_translate_merges_recovers_missing_stale_merge_cell():
     """A stale merge after row movement must not raise KeyError in openpyxl."""
     wb = Workbook()

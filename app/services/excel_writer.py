@@ -23,6 +23,8 @@ except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
 
 SHEET_NAME = "Material for production"
 ITEM_COLUMNS = range(1, 20)
+COMPACT_HIDDEN_COLUMNS = ("E", "P", "Q", "R", "S")
+COMPACT_REMOVED_SHEET = "Checklist (for Eletra's use)"
 
 
 def _norm(value: object) -> str:
@@ -220,7 +222,25 @@ def _validate_output(path: Path, po: PurchaseOrder) -> None:
         wb.close()
 
 
-def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Path) -> None:
+def _remove_compact_only_fields(wb, ws) -> None:
+    """Hide fields that are irrelevant to the compact PO conversion.
+
+    The regular conversion keeps the source template exactly as it is. The
+    compact layout has no Eletra code or internal-use fields, so hiding their
+    columns removes both their headers and filter controls without shifting
+    the established material-column mapping.
+    """
+    ws["E18"].value = None
+    ws["P15"].value = None
+    for column in ("P", "Q", "R", "S"):
+        ws[f"{column}18"].value = None
+    for column in COMPACT_HIDDEN_COLUMNS:
+        ws.column_dimensions[column].hidden = True
+    if COMPACT_REMOVED_SHEET in wb.sheetnames:
+        del wb[COMPACT_REMOVED_SHEET]
+
+
+def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Path, *, compact_layout: bool = False) -> None:
     if not template_path.is_file():
         raise ExcelTemplateError(f"Template não encontrado: {template_path}")
     wb = load_workbook(template_path, keep_links=False)
@@ -287,6 +307,8 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
     _write_header_values(ws, po)
     _set_lower_direct_fields(ws, lower_start, po)
     _restore_signature_lines(ws, lower_start)
+    if compact_layout:
+        _remove_compact_only_fields(wb, ws)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
     wb.close()

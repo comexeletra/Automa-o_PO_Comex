@@ -27,5 +27,5 @@ def process_small_purchase_order(pdf_path: Path, output_path: Path, template_pat
     """Convert the compact TOTVS layout through its isolated parser."""
     po = parse_small_purchase_order(pdf_path)
     warnings = validate_purchase_order(po)
-    write_purchase_order(po, template_path, output_path)
+    write_purchase_order(po, template_path, output_path, compact_layout=True)
     return ProcessingResult(job_id=None, po=po, output_path=str(output_path), warnings=warnings)
