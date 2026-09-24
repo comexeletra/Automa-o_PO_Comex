@@ -22,6 +22,15 @@ def test_non_pdf_is_rejected():
     assert response.status_code == 400
 
 
+@pytest.mark.skipif(not Path("20188 (1).pdf").exists(), reason="PDF compacto de referência não disponível")
+def test_compact_pdf_download_uses_the_separate_route():
+    client = TestClient(app)
+    pdf = Path("20188 (1).pdf").read_bytes()
+    response = client.post("/process-small", files={"file": ("20188 (1).pdf", pdf, "application/pdf")})
+    assert response.status_code == 200
+    assert response.headers["content-disposition"] == 'attachment; filename="20188 (1).xlsx"'
+
+
 def test_pdf_above_vercel_safe_limit_is_rejected():
     client = TestClient(app)
     large_pdf = b"%PDF-" + b"x" * (4 * 1024 * 1024)

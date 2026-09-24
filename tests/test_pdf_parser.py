@@ -4,10 +4,12 @@ from pathlib import Path
 import pytest
 
 from app.services.pdf_parser import _item_values_by_token_order, parse_purchase_order
+from app.services.small_po_parser import parse_small_purchase_order
 
 
 SAMPLE = Path("samples/sample_po_027956.pdf")
 SCALED_TEXT_SAMPLE = Path("assets/PO 028084 - AIR SHIPMENT AUG-2026 - SC 019418 - SI 000826 - ZEUS NG CLASS D PILOT.pdf")
+COMPACT_SAMPLE = Path("20188 (1).pdf")
 
 
 @pytest.mark.skipif(not SAMPLE.exists(), reason="PDF de referência ainda não foi fornecido ao workspace")
@@ -58,3 +60,21 @@ def test_token_order_fallback_accepts_variable_unit_and_second_unit_column():
     assert values["unit_price"] == Decimal("1.2345670")
     assert values["total"] == Decimal("15.43")
     assert values["delivery"] == "26/09/2026"
+
+
+@pytest.mark.skipif(not COMPACT_SAMPLE.exists(), reason="PDF compacto de referência não disponível")
+def test_compact_pdf_regression():
+    po = parse_small_purchase_order(COMPACT_SAMPLE)
+    assert po.po_number == "031285"
+    assert po.company_cnpj == "12.115.480/0001-15"
+    assert po.supplier_name == "W U A TRANSPORTE DE CARGAS LTDA"
+    assert po.issue_date.isoformat() == "2026-09-22"
+    assert po.payment_terms == "30 DIAS"
+    assert po.merchandise_total == Decimal("465.00")
+    assert len(po.items) == 1
+    assert po.items[0].product_code == "912160156"
+    assert po.items[0].description.startswith("FRETE DE COMPRA DE ")
+    assert po.items[0].description.endswith("RIA-PRIMA")
+    assert po.items[0].quantity == Decimal("1.000")
+    assert po.items[0].unit_price == Decimal("465.00")
+    assert po.items[0].total_value == Decimal("465.00")

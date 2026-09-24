@@ -28,7 +28,11 @@
           <input class="file-input" id="pdf-file" type="file" name="file" accept="application/pdf,.pdf" required>
         </label>
         <p id="processing-timer" class="processing-timer" role="status" aria-live="polite" hidden></p>
-        <button type="submit">Processar PO <span aria-hidden="true">→</span></button>
+        <div class="process-actions">
+          <button type="submit" data-endpoint="/process" data-label="Processar PO">Processar PO <span aria-hidden="true">→</span></button>
+          <button type="submit" class="compact-button" data-endpoint="/process-small" data-label="Processar PO menor">Processar PO menor <span aria-hidden="true">→</span></button>
+        </div>
+        <p class="compact-help">Use “PO menor” para o modelo compacto, como o pedido 031285 (frete/serviço).</p>
       </form>
     </section>
     <p class="footer-note">Dados extraídos exclusivamente do relatório TOTVS.</p>
@@ -38,7 +42,7 @@
     const fileName = document.getElementById('file-name');
     const uploadField = document.querySelector('.upload-field');
     const form = document.querySelector('form');
-    const processButton = form.querySelector('button[type="submit"]');
+    const processButtons = [...form.querySelectorAll('button[type="submit"]')];
     const processingTimer = document.getElementById('processing-timer');
     const maxUploadBytes = {{ max_upload_mb }} * 1024 * 1024;
 
@@ -94,7 +98,10 @@
         return;
       }
       const startedAt = performance.now();
-      processButton.disabled = true;
+      const processButton = event.submitter || processButtons[0];
+      const processUrl = processButton.dataset.endpoint || form.action;
+      const processLabel = processButton.dataset.label || 'Processar PO';
+      processButtons.forEach((button) => { button.disabled = true; });
       processButton.textContent = 'Processando PO...';
       processingTimer.hidden = false;
 
@@ -109,7 +116,7 @@
       const timerId = window.setInterval(updateTimer, 1000);
 
       try {
-        const response = await fetch(form.action, {
+        const response = await fetch(processUrl, {
           method: form.method,
           body: new FormData(form),
         });
@@ -145,10 +152,10 @@
       } catch (error) {
         console.error('Falha ao processar a PO:', error);
         processingTimer.textContent = 'Não foi possível processar a PO. Tente novamente.';
-        processButton.textContent = 'Processar PO';
+        processButton.textContent = processLabel;
       } finally {
         window.clearInterval(timerId);
-        processButton.disabled = false;
+        processButtons.forEach((button) => { button.disabled = false; });
       }
     });
   </script>

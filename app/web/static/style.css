@@ -22,3 +22,6 @@ button:hover,.button-link:hover { transform:translateY(-2px); box-shadow:0 10px 
 
 button:disabled { cursor:wait; opacity:.72; transform:none; box-shadow:none; }
 .processing-timer { margin:0; color:var(--eletra-deep-blue); font-size:.9rem; font-weight:700; }
+.process-actions { display:flex; flex-wrap:wrap; gap:.75rem; }
+.compact-button { background:linear-gradient(100deg,#648800,var(--eletra-green)); }
+.compact-help { margin:0; color:var(--muted); font-size:.83rem; line-height:1.45; }
