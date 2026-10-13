@@ -254,6 +254,36 @@ def _remove_compact_only_fields(wb, ws) -> None:
         del wb[COMPACT_REMOVED_SHEET]
 
 
+def _remove_change_tables(ws) -> int | None:
+    """Remove the two obsolete code substitution and MOQ tables below REMARKS.
+
+    Return the original first header row so the associated DrawingML shapes
+    can be omitted when they are copied from the source workbook.
+    """
+    first = second = None
+    for row in ws.iter_rows():
+        if "old code" in _norm(row[1].value) and "new code" in _norm(row[2].value):
+            first = row[0].row
+        if "material code" in _norm(row[1].value) and "moq" in _norm(row[5].value):
+            second = row[0].row
+    if first is None and second is None:
+        return None
+    if first is None or second is None or second <= first:
+        raise ExcelTemplateError("Quadros de substituição de códigos incompletos no template.")
+
+    # The last table's blank data rows have the same style in column B. The
+    # first unstyled row marks the end without depending on the item count.
+    detail_style = ws.cell(second + 1, 2)._style
+    if detail_style is None:
+        raise ExcelTemplateError("Linhas do quadro MOQ não identificadas no template.")
+    last = second
+    while last + 1 <= ws.max_row and ws.cell(last + 1, 2)._style == detail_style:
+        last += 1
+    _delete_row_dimensions(ws, first, last - first + 1)
+    ws.delete_rows(first, last - first + 1)
+    return first
+
+
 def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Path, *, compact_layout: bool = False) -> None:
     if not template_path.is_file():
         raise ExcelTemplateError(f"Template não encontrado: {template_path}")
@@ -323,11 +353,15 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
     _restore_signature_lines(ws, lower_start)
     if compact_layout:
         _remove_compact_only_fields(wb, ws)
+    table_row = _remove_change_tables(ws)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
     wb.close()
     remove_external_links(output_path)
-    preserve_sheet_drawings(template_path, output_path, lower_block_row=approval_row, row_delta=delta)
+    preserve_sheet_drawings(
+        template_path, output_path, lower_block_row=approval_row, row_delta=delta,
+        remove_from_row=table_row - delta - 3 if table_row is not None else None,
+    )
     _validate_output(output_path, po)
 
 
@@ -350,7 +384,10 @@ def remove_external_links(path: Path) -> None:
     temporary.replace(path)
 
 
-def preserve_sheet_drawings(source_path: Path, output_path: Path, *, lower_block_row: int | None = None, row_delta: int = 0) -> None:
+def preserve_sheet_drawings(
+    source_path: Path, output_path: Path, *, lower_block_row: int | None = None,
+    row_delta: int = 0, remove_from_row: int | None = None,
+) -> None:
     """Preserve DrawingML shapes that openpyxl drops when saving a workbook.
 
     The template's APPROVAL/signature block is made of native Excel drawing
@@ -377,14 +414,20 @@ def preserve_sheet_drawings(source_path: Path, output_path: Path, *, lower_block
             return
         drawing_name = posixpath.normpath(posixpath.join("xl/worksheets", target_match.group(1)))
         parts = {name: source.read(name) for name in names if name.startswith("xl/drawings/") or name.startswith("xl/media/")}
-        if drawing_name in parts and lower_block_row is not None and row_delta:
+        if drawing_name in parts and (remove_from_row is not None or (lower_block_row is not None and row_delta)):
             from xml.etree import ElementTree as ET
             root = ET.fromstring(parts[drawing_name])
             ns = "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
-            for anchor in root:
+            for anchor in list(root):
                 origin = anchor.find(ns + "from")
                 row = origin.find(ns + "row") if origin is not None else None
-                if row is None or int(row.text or "0") < lower_block_row - 1:
+                if row is None:
+                    continue
+                source_row = int(row.text or "0")
+                if remove_from_row is not None and source_row >= remove_from_row:
+                    root.remove(anchor)
+                    continue
+                if lower_block_row is None or not row_delta or source_row < lower_block_row - 1:
                     continue
                 for point in (origin, anchor.find(ns + "to")):
                     row_node = point.find(ns + "row") if point is not None else None

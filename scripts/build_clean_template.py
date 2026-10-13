@@ -11,7 +11,7 @@ from openpyxl.cell.cell import MergedCell
 
 # Allow the documented `python scripts/build_clean_template.py ...` invocation.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.services.excel_writer import SHEET_NAME, _header_row, find_row_containing, preserve_sheet_drawings, remove_external_links, replace_workbook_logo
+from app.services.excel_writer import SHEET_NAME, _header_row, _remove_change_tables, find_row_containing, preserve_sheet_drawings, remove_external_links, replace_workbook_logo
 
 
 def _clear_cell(cell) -> None:
@@ -53,18 +53,7 @@ def build_clean_template(reference: Path, output: Path, logo: Path | None = None
         for cell in row:
             if _is_variable_value(cell.value):
                 _clear_cell(cell)
-    # Historical substitution/MOQ tables are visual structure only. Clear every
-    # data row beneath their headers; never derive or copy those records.
-    table_headers: list[int] = []
-    for row in ws.iter_rows(min_row=approval):
-        labels = " ".join(str(cell.value or "").lower() for cell in row)
-        if ("old code" in labels and "new code" in labels) or ("material code" in labels and "moq" in labels):
-            table_headers.append(row[0].row)
-    for index, header in enumerate(table_headers):
-        end = table_headers[index + 1] if index + 1 < len(table_headers) else ws.max_row + 1
-        for row_number in range(header + 1, end):
-            for cell in ws[row_number]:
-                _clear_cell(cell)
+    table_row = _remove_change_tables(ws)
     # Operational locations in the manual workbook are not confirmed PDF fields.
     for row in ws.iter_rows(min_row=approval):
         for cell in row:
@@ -79,7 +68,7 @@ def build_clean_template(reference: Path, output: Path, logo: Path | None = None
     wb.save(output)
     wb.close()
     remove_external_links(output)
-    preserve_sheet_drawings(reference, output)
+    preserve_sheet_drawings(reference, output, remove_from_row=table_row - 3 if table_row is not None else None)
     if logo is not None:
         replace_workbook_logo(output, logo)
 

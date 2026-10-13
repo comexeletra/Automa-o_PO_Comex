@@ -1,6 +1,6 @@
 # Conversor de Pedido TOTVS para Excel
 
-O PDF é a única fonte de dados. O sistema mantém o layout do template e deixa vazios NCM, Eletra code, finalidade, centro de custos, LI e projeto. Não faz lookup, substituição de código, MOQ nem inferência.
+O PDF é a única fonte de dados. O sistema mantém o layout principal do template e deixa vazios NCM, Eletra code, finalidade, centro de custos, LI e projeto. Os quadros históricos de substituição de códigos e MOQ são removidos da planilha gerada. Não faz lookup, substituição de código, MOQ nem inferência.
 
 ## Instalação (Windows / VS Code)
 

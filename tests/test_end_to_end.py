@@ -1,4 +1,5 @@
 from pathlib import Path
+from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 import pytest
@@ -11,6 +12,21 @@ PDF = Path("samples/sample_po_027956.pdf")
 TEMPLATE = Path("templates/po_template.xlsx")
 COMPACT_PDF = Path("20188 (1).pdf")
 SCALED_TEXT_PDF = Path("assets/PO 028084 - AIR SHIPMENT AUG-2026 - SC 019418 - SI 000826 - ZEUS NG CLASS D PILOT.pdf")
+
+
+def _assert_change_tables_removed(ws, output, item_count):
+    labels = " ".join(str(cell.value or "").lower() for row in ws for cell in row)
+    assert "old code" not in labels
+    assert "material code" not in labels
+    assert "moq" not in labels
+    with ZipFile(output) as archive:
+        drawing = ET.fromstring(archive.read("xl/drawings/drawing1.xml"))
+    ns = "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
+    anchor_rows = [int(anchor.find(ns + "from").find(ns + "row").text)
+                   for anchor in drawing if anchor.find(ns + "from") is not None]
+    # The table graphics begin at source drawing row 236. The source template
+    # reserves 193 item rows, so each output moves the lower drawings by delta.
+    assert max(anchor_rows) < 236 + item_count - 193
 
 
 @pytest.mark.skipif(not PDF.exists() or not TEMPLATE.exists(), reason="Arquivos de referência não estão disponíveis")
@@ -36,9 +52,7 @@ def test_reference_pdf_to_excel_end_to_end(tmp_path):
     assert ws["A233"].value == "PO027956"
     assert ws["A234"].value == "SC - 019347 - 019458"
     assert ws["A236"].value == "Payment Terms: 240 DIAS"
-    # Lower tables remain as visual structure, with no inherited manual records.
-    assert all(ws.cell(row, column).value is None for row in range(240, 245) for column in range(1, 7))
-    assert all(ws.cell(row, column).value is None for row in range(247, 259) for column in range(1, 7))
+    _assert_change_tables_removed(ws, output, 193)
     wb.close()
     with ZipFile(output) as archive:
         assert not any(name.startswith("xl/externalLinks/") for name in archive.namelist())
@@ -58,6 +72,7 @@ def test_compact_pdf_omits_internal_only_fields(tmp_path):
     assert ws["P15"].value is None
     assert all(ws[f"{column}18"].value is None for column in ("P", "Q", "R", "S"))
     assert "Checklist (for Eletra's use)" not in wb.sheetnames
+    _assert_change_tables_removed(ws, output, 1)
     wb.close()
 
 
@@ -76,4 +91,5 @@ def test_main_conversion_recognizes_previous_layouts(tmp_path, pdf, po_number, i
     ws = wb["Material for production"]
     assert ws["A19"].value == po_number
     assert ws["C19"].value == first_code
+    _assert_change_tables_removed(ws, output, item_count)
     wb.close()

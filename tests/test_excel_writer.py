@@ -66,6 +66,8 @@ def test_writer_uses_the_processing_date_in_the_date_field(tmp_path, monkeypatch
 
     ws = load_workbook(output, data_only=False)["Material for production"]
     assert ws["J2"].value.date() == date(2030, 1, 2)
+    assert not any("old code" in str(cell.value).lower() or "moq" in str(cell.value).lower()
+                   for row in ws for cell in row)
 
 
 def test_translate_merges_recovers_missing_stale_merge_cell():
