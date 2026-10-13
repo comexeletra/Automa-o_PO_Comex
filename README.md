@@ -36,7 +36,7 @@ O utilitário remove conteúdo variável conhecido e fórmulas do bloco de mater
 pytest -q
 ```
 
-Os testes de regressão do pedido 027956 são habilitados automaticamente quando `samples/sample_po_027956.pdf` existir.
+Os testes de regressão cobrem os layouts extensos com coordenadas normais ou texto escalado e o layout compacto com código numérico. Testes sintéticos cobrem código alfanumérico, preço adjacente ao IPI e pagamento AVISTA. O fluxo principal `POST /process` reconhece todas essas variações; `POST /process-small` permanece disponível para o layout compacto. PDFs internos usados em validações locais não precisam ser publicados no repositório.
 
 ## Servidor
 
@@ -59,7 +59,7 @@ Ele usa as pastas `storage/incoming`, `storage/processing`, `storage/completed` 
 
 ## Limitação atual
 
-O parser é deliberadamente restritivo: espera PDF TOTVS textual com as colunas do layout especificado. Para layout diferente, ele falha com `UNSUPPORTED_TOTVS_PDF_LAYOUT` em vez de produzir planilha possivelmente incorreta. OCR não faz parte deste MVP.
+O parser é deliberadamente restritivo: espera PDF TOTVS textual com um dos layouts já suportados. Para layout diferente, ele falha com erro de layout não suportado em vez de produzir planilha possivelmente incorreta. OCR não faz parte deste MVP.
 
 ## Vercel
 

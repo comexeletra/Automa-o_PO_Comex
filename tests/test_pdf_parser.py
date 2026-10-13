@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from app.services.pdf_parser import _item_values_by_token_order, parse_purchase_order
-from app.services.small_po_parser import parse_small_purchase_order
+from app.services.small_po_parser import _PRODUCT, _decimal_in_column, _metadata, parse_small_purchase_order
 
 
 SAMPLE = Path("samples/sample_po_027956.pdf")
@@ -78,3 +78,18 @@ def test_compact_pdf_regression():
     assert po.items[0].quantity == Decimal("1.000")
     assert po.items[0].unit_price == Decimal("465.00")
     assert po.items[0].total_value == Decimal("465.00")
+
+
+def test_compact_variant_accepts_alphanumeric_code_and_separates_price_from_ipi():
+    assert _PRODUCT.fullmatch("ABC123.X45")
+    assert _PRODUCT.fullmatch("123456789")
+    row = [(379.0, 0.0, 0.0, "52,42"), (405.0, 0.0, 0.0, "9,75")]
+    assert _decimal_in_column(row, 360, 425) == Decimal("52.42")
+
+
+def test_compact_variant_accepts_cash_payment():
+    rows = [
+        [(12.0, 0.0, 0.0, "Condicao"), (30.0, 0.0, 0.0, "de"), (36.0, 0.0, 0.0, "Pagto")],
+        [(12.0, 0.0, 0.0, "AVISTA")],
+    ]
+    assert _metadata(rows)["payment_terms"] == "AVISTA"

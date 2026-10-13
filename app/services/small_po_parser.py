@@ -1,6 +1,6 @@
 """Parser dedicated to the compact TOTVS purchase-order layout.
 
-This format uses four-digit item groups and (usually) nine-digit product
+This format uses four-digit item groups and numeric or alphanumeric product
 codes. Keeping it separate from ``pdf_parser`` prevents changes to the
 well-established large-PO conversion path.
 """
@@ -24,7 +24,7 @@ except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
 
 
 _ITEM = re.compile(r"^\d{4}$")
-_PRODUCT = re.compile(r"^\d{8,12}$")
+_PRODUCT = re.compile(r"^(?:\d{8,12}|(?=.{5,30}$)(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9][A-Za-z0-9._/-]*)$")
 _DECIMAL = re.compile(r"-?[\d.]+,\d+")
 _DATE = re.compile(r"\d{2}/\d{2}/\d{4}")
 
@@ -38,7 +38,9 @@ def _column_text(row, start: float, end: float) -> str:
 
 
 def _decimal_in_column(row, start: float, end: float) -> Decimal:
-    value = _DECIMAL.search(_column_text(row, start, end).replace(" ", ""))
+    # Adjacent price and IPI values occupy the same coordinate range. Keep
+    # token separators so their decimal digits cannot be joined together.
+    value = _DECIMAL.search(_column_text(row, start, end))
     if value is None:
         raise ValueError("Valor numérico não identificado.")
     return parse_ptbr_decimal(value.group(0))
@@ -77,7 +79,7 @@ def _metadata(rows) -> dict[str, object | None]:
             if match:
                 issue_date = _date(match.group(0))
         if "Condicao de Pagto" in row_text and index + 1 < len(rows):
-            match = re.search(r"(\d+\s+DIAS)\b", _column_text(rows[index + 1], 0, 180), flags=re.IGNORECASE)
+            match = re.search(r"\b(\d+\s+DIAS|A\s*VISTA)\b", _column_text(rows[index + 1], 0, 180), flags=re.IGNORECASE)
             if match:
                 payment_terms = match.group(1).upper()
 
@@ -106,6 +108,9 @@ def parse_small_purchase_order(pdf_path: Path) -> PurchaseOrder:
         rows = [row for page in document.pages for row in _lines(page)]
         if not rows:
             raise PdfTextLayerNotFoundError("PDF_TEXT_LAYER_NOT_FOUND")
+        header = " ".join(_row_text(row) for row in rows if "Produto" in _row_text(row))
+        if not re.search(r"\bItem\s+Produto\s+Descricao\b", header, flags=re.IGNORECASE):
+            raise UnsupportedLayoutError("UNSUPPORTED_COMPACT_TOTVS_PDF_LAYOUT")
         data = _metadata(rows)
         items: list[PurchaseOrderItem] = []
         current: dict[str, object] | None = None

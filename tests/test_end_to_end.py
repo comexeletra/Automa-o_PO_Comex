@@ -10,6 +10,7 @@ from app.services.processor import process_purchase_order, process_small_purchas
 PDF = Path("samples/sample_po_027956.pdf")
 TEMPLATE = Path("templates/po_template.xlsx")
 COMPACT_PDF = Path("20188 (1).pdf")
+SCALED_TEXT_PDF = Path("assets/PO 028084 - AIR SHIPMENT AUG-2026 - SC 019418 - SI 000826 - ZEUS NG CLASS D PILOT.pdf")
 
 
 @pytest.mark.skipif(not PDF.exists() or not TEMPLATE.exists(), reason="Arquivos de referência não estão disponíveis")
@@ -57,4 +58,22 @@ def test_compact_pdf_omits_internal_only_fields(tmp_path):
     assert ws["P15"].value is None
     assert all(ws[f"{column}18"].value is None for column in ("P", "Q", "R", "S"))
     assert "Checklist (for Eletra's use)" not in wb.sheetnames
+    wb.close()
+
+
+@pytest.mark.parametrize("pdf, po_number, item_count, first_code", [
+    (COMPACT_PDF, "031285", 1, "912160156"),
+    (SCALED_TEXT_PDF, "028084", 108, "2010100040"),
+])
+def test_main_conversion_recognizes_previous_layouts(tmp_path, pdf, po_number, item_count, first_code):
+    if not pdf.exists() or not TEMPLATE.exists():
+        pytest.skip("PDF ou template de referência não disponível")
+    output = tmp_path / f"PO_{po_number}.xlsx"
+    result = process_purchase_order(pdf, output, TEMPLATE)
+    assert result.po.po_number == po_number
+    assert len(result.po.items) == item_count
+    wb = load_workbook(output, read_only=True, data_only=True, keep_links=False)
+    ws = wb["Material for production"]
+    assert ws["A19"].value == po_number
+    assert ws["C19"].value == first_code
     wb.close()
