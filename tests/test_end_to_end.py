@@ -39,12 +39,12 @@ def test_reference_pdf_to_excel_end_to_end(tmp_path):
     assert ws["A19"].value == "027956"
     assert ws["B19"].value == 1
     assert ws["C19"].value == "2010100040"
-    assert ws["D19"].value is None and ws["E19"].value is None
-    assert ws["F19"].value.startswith("RESISTOR 390K")
+    assert ws["D19"].value == "85332120" and ws["E19"].value is None
+    assert ws["F19"].value.startswith("RESISTOR (RESISTENCIA ELETRICA FIXA)")
     assert ws["M19"].value == 75000
     assert ws["N19"].value == 0.010416
     assert ws["O19"].value == 781.2
-    assert all(ws.cell(row, col).value is None for row in range(19, 212) for col in (4, 5, 16, 17, 18, 19))
+    assert all(ws.cell(row, col).value is None for row in range(19, 212) for col in (5, 16, 17, 18, 19))
     assert ws["M212"].value == 53389684
     assert ws["N212"].value == 9361869.5
     assert any("APPROVAL" in str(cell.value) for cell in ws[214])

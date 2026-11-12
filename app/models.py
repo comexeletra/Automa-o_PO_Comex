@@ -16,6 +16,7 @@ class PurchaseOrderItem:
     delivery_date: date | None = None
     pdf_cost_center: str | None = None
     sc_number: str | None = None
+    ncm: str | None = None
 
 
 @dataclass(frozen=True)

@@ -63,16 +63,21 @@ def write_draft_purchase_order(po: PurchaseOrder, template_path: Path, output_pa
                 cell = ws.cell(row, col)
                 cell._style = copy(style)
                 cell.value = None
-            fields = {2: item.sequence, 3: item.product_code, 5: item.description,
+            fields = {2: item.sequence, 3: item.product_code, 4: item.ncm, 5: item.description,
                       12: item.quantity, 13: item.unit_price, 14: item.total_value}
             for col, value in fields.items():
                 cell = ws.cell(row, col)
                 cell.value = value
                 if isinstance(value, str):
                     cell.data_type = "s"
-            for col, fmt in {2: "0", 3: "@", 12: "#,##0.###", 13: "0.0000000", 14: "#,##0.00"}.items():
+            for col, fmt in {2: "0", 3: "@", 4: "@", 12: "#,##0.###", 13: "0.0000000", 14: "#,##0.00"}.items():
                 ws.cell(row, col).number_format = fmt
             ws.merge_cells(start_row=row, start_column=5, end_row=row, end_column=11)
+            alignment = copy(ws.cell(row, 5).alignment)
+            alignment.wrap_text = True
+            ws.cell(row, 5).alignment = alignment
+            lines = sum(max(1, (len(line) + 89) // 90) for line in item.description.split("\n"))
+            ws.row_dimensions[row].height = max(height or 15, lines * 15)
         if len(po.items) > 1:
             ws.merge_cells(start_row=start, start_column=1, end_row=total - 1, end_column=1)
         ws.cell(start, 1, po.po_number).data_type = "s"
@@ -128,7 +133,7 @@ def _validate_draft(path: Path, po: PurchaseOrder, start: int) -> None:
             for col, expected in ((12, item.quantity), (13, item.unit_price), (14, item.total_value)):
                 if Decimal(str(ws.cell(row, col).value)) != expected:
                     raise ExcelTemplateError(f"Valor divergente na linha {row}.")
-            if ws.cell(row, 4).value is not None:
-                raise ExcelTemplateError(f"NCM não informado na origem: linha {row}.")
+            if ws.cell(row, 4).value != item.ncm:
+                raise ExcelTemplateError(f"NCM divergente do database: linha {row}.")
     finally:
         wb.close()

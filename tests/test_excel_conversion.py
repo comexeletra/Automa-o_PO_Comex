@@ -33,7 +33,8 @@ def test_draft_resizes_and_preserves_layout(tmp_path, count):
     source, output = tmp_path / "source.xlsx", tmp_path / "result.xlsx"
     export_file(source, count)
     result = process_excel_purchase_order(source, output, TEMPLATE)
-    assert result.warnings == ()
+    assert len(result.warnings) == count
+    assert "não encontrado" in result.warnings[0]
     assert result.po.items[0].quantity == Decimal("1250.5")
     assert result.po.items[0].unit_price == Decimal("0.0023")
     wb = load_workbook(output)
@@ -109,13 +110,17 @@ def test_real_po_and_web_download(tmp_path):
     assert len(result.po.items) == 120
     assert result.po.merchandise_total == Decimal("2089539.05")
     assert result.po.items[-1].product_code == "HXAP1000R31043-CEMIG"
-    assert result.warnings == ()
+    assert len(result.warnings) == 23
+    assert result.po.items[0].ncm == "85332120"
+    assert result.po.items[0].description.startswith("RESISTOR (RESISTENCIA ELETRICA FIXA)")
     client = TestClient(app)
     response = client.post("/process", files={"file": (SOURCE.name, SOURCE.read_bytes(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
     assert response.status_code == 200
     assert response.headers["X-Item-Count"] == "120"
     assert response.headers["X-PO-Number"] == "033193"
     wb = load_workbook(BytesIO(response.content))
+    assert wb["Material for production"]["D19"].value == "85332120"
+    assert wb["Material for production"]["E19"].value == result.po.items[0].description
     assert wb["Material for production"]["M139"].value == 2089539.05
     wb.close()
 

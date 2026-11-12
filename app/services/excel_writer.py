@@ -228,7 +228,7 @@ def _validate_output(path: Path, po: PurchaseOrder) -> None:
                 Decimal(str(ws.cell(row, col).value)) == value
                 for col, value in ((13, item.quantity), (14, item.unit_price), (15, item.total_value))
             )
-            if actual != expected or not numbers_match or any(ws.cell(row, col).value is not None for col in (4, 5, 16, 17, 18, 19)):
+            if actual != expected or not numbers_match or ws.cell(row, 4).value != item.ncm or any(ws.cell(row, col).value is not None for col in (5, 16, 17, 18, 19)):
                 raise ExcelTemplateError(f"Validação da linha de material falhou: {row}.")
             if any(isinstance(ws.cell(row, col).value, str) and ws.cell(row, col).value.startswith("=") for col in ITEM_COLUMNS):
                 raise ExcelTemplateError("Fórmula encontrada no bloco de materiais.")
@@ -333,7 +333,14 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
         ws.cell(row, 2).number_format = "0"
         ws.cell(row, 3).value = item.product_code  # identifier, intentionally text
         ws.cell(row, 3).number_format = "@"
+        ws.cell(row, 4).value = item.ncm
+        ws.cell(row, 4).number_format = "@"
         ws.cell(row, 6).value = item.description
+        alignment = copy(ws.cell(row, 6).alignment)
+        alignment.wrap_text = True
+        ws.cell(row, 6).alignment = alignment
+        lines = sum(max(1, (len(line) + 89) // 90) for line in item.description.split("\n"))
+        ws.row_dimensions[row].height = max(ws.row_dimensions[row].height or 15, lines * 15)
         ws.cell(row, 13).value = item.quantity
         ws.cell(row, 13).number_format = "#,##0.###"
         ws.cell(row, 14).value = item.unit_price

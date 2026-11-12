@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 try:  # Local package execution
+    from app.config import settings
+    from app.services.product_database import enrich_purchase_order
     from app.exceptions import UnsupportedLayoutError
     from app.models import ProcessingResult
     from app.services.excel_writer import write_purchase_order
@@ -12,6 +14,8 @@ try:  # Local package execution
     from app.services.excel_parser import parse_excel_purchase_order
     from app.services.draft_writer import write_draft_purchase_order
 except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
+    from config import settings
+    from services.product_database import enrich_purchase_order
     from exceptions import UnsupportedLayoutError
     from models import ProcessingResult
     from services.excel_writer import write_purchase_order
@@ -32,14 +36,16 @@ def process_purchase_order(pdf_path: Path, output_path: Path, template_path: Pat
         except UnsupportedLayoutError:
             raise original_error
         compact_layout = True
-    warnings = validate_purchase_order(po)
+    po, database_warnings = enrich_purchase_order(po, settings.product_database_path)
+    warnings = validate_purchase_order(po) + database_warnings
     write_purchase_order(po, template_path, output_path, compact_layout=compact_layout)
     return ProcessingResult(job_id=None, po=po, output_path=str(output_path), warnings=warnings)
 
 
 def process_excel_purchase_order(input_path: Path, output_path: Path, template_path: Path) -> ProcessingResult:
     po = parse_excel_purchase_order(input_path)
-    warnings = validate_purchase_order(po)
+    po, database_warnings = enrich_purchase_order(po, settings.product_database_path)
+    warnings = validate_purchase_order(po) + database_warnings
     write_draft_purchase_order(po, template_path, output_path)
     return ProcessingResult(job_id=None, po=po, output_path=str(output_path), warnings=warnings)
 
@@ -47,6 +53,7 @@ def process_excel_purchase_order(input_path: Path, output_path: Path, template_p
 def process_small_purchase_order(pdf_path: Path, output_path: Path, template_path: Path) -> ProcessingResult:
     """Convert the compact TOTVS layout through its isolated parser."""
     po = parse_small_purchase_order(pdf_path)
-    warnings = validate_purchase_order(po)
+    po, database_warnings = enrich_purchase_order(po, settings.product_database_path)
+    warnings = validate_purchase_order(po) + database_warnings
     write_purchase_order(po, template_path, output_path, compact_layout=True)
     return ProcessingResult(job_id=None, po=po, output_path=str(output_path), warnings=warnings)

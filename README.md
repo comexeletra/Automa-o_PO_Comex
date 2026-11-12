@@ -1,6 +1,6 @@
 # Conversor de Pedido TOTVS para Excel
 
-O arquivo enviado (PDF ou exportação Excel do TOTVS) é a única fonte dos dados variáveis. Não faz lookup, substituição de código, MOQ nem inferência. Na conversão de PDF, o sistema mantém o layout principal do template e deixa vazios NCM, Eletra code, finalidade, centro de custos, LI e projeto. Os quadros históricos de substituição de códigos e MOQ são removidos da planilha gerada.
+O arquivo enviado (PDF ou exportação Excel do TOTVS) fornece os dados do pedido. Nos fluxos de Excel e PDF, o Supply code é relacionado ao Product Code do database para preencher a NCM e substituir a descrição reduzida pela descrição completa. Códigos, quantidades e valores do pedido são preservados. Eletra code, finalidade, centro de custos, LI e projeto continuam vazios. Os quadros históricos de substituição de códigos e MOQ são removidos da planilha gerada.
 
 ## Excel TOTVS → PO DRAFT
 
@@ -13,7 +13,7 @@ O template do novo fluxo está em `app/resources/po_draft_template.xlsx`, copiad
 | Numero | PO # e observações |
 | Item | # |
 | Produto | Supply code (texto, inclusive códigos alfanuméricos) |
-| Descricao | Product description |
+| Descricao | Product description, substituída pela descrição completa do database quando encontrada |
 | Quantidade | Total QTY |
 | Prc Unitario | Unit price |
 | Vlr.Total | Total (CNY) |
@@ -21,9 +21,15 @@ O template do novo fluxo está em `app/resources/po_draft_template.xlsx`, copiad
 | Filial | Buyer, caso o DRAFT não contenha a razão social |
 | Numero da SC | Observações, sem duplicação |
 
-Os totais são valores numéricos somados da origem. O bloco de itens cresce ou diminui preservando aprovação, assinaturas, logo, observações e área de impressão. A data no cabeçalho é a data da conversão em São Paulo, como no fluxo PDF. Os dados cadastrais fixos do DRAFT são preservados: razão social do comprador, CNPJ, endereços e contatos. NCM, modal, Incoterm, pagamento, solicitante e mês de produção ficam vazios neste fluxo, pois esses dados não estão preenchidos na exportação de referência. As abas auxiliares ocultas do DRAFT são preservadas, sem consulta às suas tabelas ou fórmulas.
+Os totais são valores numéricos somados da origem. O bloco de itens cresce ou diminui preservando aprovação, assinaturas, logo, observações e área de impressão. A data no cabeçalho é a data da conversão em São Paulo, como no fluxo PDF. Os dados cadastrais fixos do DRAFT são preservados: razão social do comprador, CNPJ, endereços e contatos. A NCM vem do database. Modal, Incoterm, pagamento, solicitante e mês de produção ficam vazios neste fluxo, pois esses dados não estão preenchidos na exportação de referência. As abas auxiliares ocultas do DRAFT são preservadas, sem consulta às suas tabelas ou fórmulas.
 
 O conversor rejeita planilhas sem o cabeçalho esperado, com mais de uma PO/filial/fornecedor, itens duplicados ou números inválidos. Os testes cobrem redução e expansão do layout, valores decimais brasileiros, preservação dos desenhos e download pela interface.
+
+## Database de produtos
+
+A base usada pela plataforma está em `app/resources/product_database.xlsx`, copiada de `templates/new_po_model/DATABASE - Renew.xlsx`. A primeira aba é `DATABASE - SANEAMENTO`, com as colunas `Product Code`, `Product Description` e `NCM DATABASE`. Configure `PRODUCT_DATABASE_PATH` para selecionar outro arquivo; para atualizar a base padrão, substitua a cópia em `app/resources`.
+
+A correspondência é exata, preservando zeros à esquerda e códigos alfanuméricos. A NCM é gravada como texto com oito dígitos. Itens ausentes ou com cadastros duplicados divergentes mantêm a descrição original, sem NCM, e recebem aviso para revisão. Campos incompletos também geram aviso; base ausente ou sem as colunas obrigatórias interrompe a conversão. As descrições completas usam quebra de texto e altura de linha ajustada.
 
 ## Instalação (Windows / VS Code)
 

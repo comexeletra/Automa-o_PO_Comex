@@ -30,6 +30,7 @@ def test_main_processor_selects_compact_layout(monkeypatch):
     monkeypatch.setattr(processor, "write_purchase_order", write)
     result = processor.process_purchase_order(Path("input.pdf"), Path("output.xlsx"), Path("template.xlsx"))
 
-    assert result.po is po
-    assert result.warnings == ()
+    assert result.po == po
+    assert len(result.warnings) == 1
+    assert "ABC123.X45" in result.warnings[0]
     assert written == [True]
