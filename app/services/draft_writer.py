@@ -96,7 +96,6 @@ def write_draft_purchase_order(po: PurchaseOrder, template_path: Path, output_pa
         ws["I8"] = po.payment_terms
         remarks = find_row_containing(ws, "remarks")
         if remarks:
-            ws.cell(remarks + 2, 1).value = "Payment Terms:" + (f" {po.payment_terms}" if po.payment_terms else "")
             ws.cell(remarks + 3, 1).value = f"PO{po.po_number}"
             scs = list(dict.fromkeys(item.sc_number for item in po.items if item.sc_number))
             ws.cell(remarks + 4, 1).value = "SC - " + " - ".join(scs) if scs else None
