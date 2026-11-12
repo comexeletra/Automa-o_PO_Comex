@@ -47,6 +47,9 @@ def test_conflicting_duplicates_and_incomplete_records_are_flagged(tmp_path):
     assert (po.items[1].description, po.items[1].ncm) == ("Produto completo", None)
     assert (po.items[2].description, po.items[2].ncm) == ("Descrição reduzida", "12345678")
     assert len(warnings) == 3
+    assert [(i.ncm_needs_review, i.description_needs_review) for i in po.items] == [
+        (True, True), (True, False), (False, True),
+    ]
 
 
 def test_database_must_be_available_and_have_required_columns(tmp_path):

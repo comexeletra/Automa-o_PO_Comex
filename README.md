@@ -31,6 +31,8 @@ A base usada pela plataforma está em `app/resources/product_database.xlsx`, cop
 
 A correspondência é exata, preservando zeros à esquerda e códigos alfanuméricos. A NCM é gravada como texto com oito dígitos. Itens ausentes ou com cadastros duplicados divergentes mantêm a descrição original, sem NCM, e recebem aviso para revisão. Campos incompletos também geram aviso; base ausente ou sem as colunas obrigatórias interrompe a conversão. As descrições completas usam quebra de texto e altura de linha ajustada.
 
+No arquivo final, as células de NCM não preenchidas e de descrições originais mantidas por pendência no database recebem fundo amarelo. Em cadastros parcialmente preenchidos, somente o campo pendente é destacado. A tela de resultado mostra a quantidade de produtos para revisão e uma lista expansível com Supply code e motivo, mantendo os demais avisos separados.
+
 ## Instalação (Windows / VS Code)
 
 ```powershell

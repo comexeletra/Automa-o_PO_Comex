@@ -41,6 +41,9 @@ def test_reference_pdf_to_excel_end_to_end(tmp_path):
     assert ws["C19"].value == "2010100040"
     assert ws["D19"].value == "85332120" and ws["E19"].value is None
     assert ws["F19"].value.startswith("RESISTOR (RESISTENCIA ELETRICA FIXA)")
+    for row, item in enumerate(result.po.items, 19):
+        assert (ws.cell(row, 4).fill.fgColor.rgb == "00FFFF00") == item.ncm_needs_review
+        assert (ws.cell(row, 6).fill.fgColor.rgb == "00FFFF00") == item.description_needs_review
     assert ws["M19"].value == 75000
     assert ws["N19"].value == 0.010416
     assert ws["O19"].value == 781.2

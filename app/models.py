@@ -17,6 +17,8 @@ class PurchaseOrderItem:
     pdf_cost_center: str | None = None
     sc_number: str | None = None
     ncm: str | None = None
+    ncm_needs_review: bool = False
+    description_needs_review: bool = False
 
 
 @dataclass(frozen=True)

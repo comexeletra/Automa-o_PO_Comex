@@ -11,7 +11,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
-from openpyxl.styles import Side
+from openpyxl.styles import PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 try:  # Local package execution
@@ -27,6 +27,15 @@ ITEM_COLUMNS = range(1, 20)
 COMPACT_HIDDEN_COLUMNS = ("E", "P", "Q", "R", "S")
 COMPACT_REMOVED_SHEET = "Checklist (for Eletra's use)"
 CONVERSION_TIME_ZONE = timezone(timedelta(hours=-3), name="America/Sao_Paulo")
+
+
+def highlight_database_review(ws, row, item, description_start, description_end):
+    yellow = PatternFill(fill_type="solid", fgColor="FFFF00")
+    if item.ncm_needs_review:
+        ws.cell(row, 4).fill = yellow
+    if item.description_needs_review:
+        for col in range(description_start, description_end + 1):
+            ws.cell(row, col).fill = yellow
 
 
 def _norm(value: object) -> str:
@@ -347,6 +356,7 @@ def write_purchase_order(po: PurchaseOrder, template_path: Path, output_path: Pa
         ws.cell(row, 14).number_format = "0.0000000"
         ws.cell(row, 15).value = item.total_value
         ws.cell(row, 15).number_format = "#,##0.00"
+        highlight_database_review(ws, row, item, 6, 12)
     # Dynamic PO merge may have been recreated from the original; write top-left only.
     ws.cell(item_start, 1).value = po.po_number
     total_qty_cell = _value_cell(ws, total_row, 13)

@@ -26,3 +26,14 @@ button:disabled { cursor:wait; opacity:.72; transform:none; box-shadow:none; }
 .process-actions { display:flex; flex-wrap:wrap; gap:.75rem; }
 .compact-button { background:linear-gradient(100deg,#648800,var(--eletra-green)); }
 .compact-help { margin:0; color:var(--muted); font-size:.83rem; line-height:1.45; }
+.review-notice { margin:1.5rem 0; border-radius:0 10px 10px 0; }
+.review-notice h2 { margin:0 0 .5rem; font-size:1.05rem; }
+.review-notice p { margin:.5rem 0; line-height:1.5; }
+.review-notice details { margin-top:1rem; }
+.review-notice summary { cursor:pointer; font-weight:700; padding:.4rem 0; }
+.review-table-scroll { max-height:320px; overflow:auto; margin-top:.5rem; border:1px solid #e6dba7; border-radius:6px; }
+.review-table { border-collapse:collapse; width:100%; font-size:.9rem; text-align:left; }
+.review-table th,.review-table td { padding:.65rem .75rem; border-bottom:1px solid #e6dba7; overflow-wrap:anywhere; }
+.review-table th { position:sticky; top:0; background:#fff3c4; }
+.review-table td:first-child { font-weight:600; }
+.review-table tr:last-child td { border-bottom:0; }

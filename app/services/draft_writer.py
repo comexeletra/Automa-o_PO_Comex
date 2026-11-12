@@ -11,14 +11,14 @@ try:
     from app.exceptions import ExcelTemplateError
     from app.models import PurchaseOrder
     from app.services.excel_writer import (
-        SHEET_NAME, _conversion_date, _insert_row_dimensions, _delete_row_dimensions,
+        SHEET_NAME, _conversion_date, _insert_row_dimensions, _delete_row_dimensions, highlight_database_review,
         _restore_signature_lines, find_row_containing, preserve_sheet_drawings, remove_external_links,
     )
 except ModuleNotFoundError:
     from exceptions import ExcelTemplateError
     from models import PurchaseOrder
     from services.excel_writer import (
-        SHEET_NAME, _conversion_date, _insert_row_dimensions, _delete_row_dimensions,
+        SHEET_NAME, _conversion_date, _insert_row_dimensions, _delete_row_dimensions, highlight_database_review,
         _restore_signature_lines, find_row_containing, preserve_sheet_drawings, remove_external_links,
     )
 
@@ -78,6 +78,7 @@ def write_draft_purchase_order(po: PurchaseOrder, template_path: Path, output_pa
             ws.cell(row, 5).alignment = alignment
             lines = sum(max(1, (len(line) + 89) // 90) for line in item.description.split("\n"))
             ws.row_dimensions[row].height = max(height or 15, lines * 15)
+            highlight_database_review(ws, row, item, 5, 11)
         if len(po.items) > 1:
             ws.merge_cells(start_row=start, start_column=1, end_row=total - 1, end_column=1)
         ws.cell(start, 1, po.po_number).data_type = "s"

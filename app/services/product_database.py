@@ -58,10 +58,11 @@ def enrich_purchase_order(po: PurchaseOrder, database_path: Path) -> tuple[Purch
         if code not in products or code in ambiguous:
             reason = "duplicado com dados divergentes" if code in ambiguous else "não encontrado"
             warnings.append(f"Supply code {code}: {reason} no database; descrição original mantida, NCM não preenchida.")
-            items.append(item)
+            items.append(replace(item, ncm=None, ncm_needs_review=True, description_needs_review=True))
             continue
         description, ncm = products[code]
         if not description or not ncm:
             warnings.append(f"Supply code {code}: cadastro incompleto (descrição ou NCM inválida); revise o item.")
-        items.append(replace(item, description=description or item.description, ncm=ncm or None))
+        items.append(replace(item, description=description or item.description, ncm=ncm or None,
+                             ncm_needs_review=not bool(ncm), description_needs_review=not bool(description)))
     return replace(po, items=tuple(items)), tuple(dict.fromkeys(warnings))

@@ -18,7 +18,21 @@
         <dt>SCs encontrados</dt><dd id="result-scs">—</dd>
         <dt>Tempo de processamento</dt><dd id="result-processing-seconds">—</dd>
       </dl>
-      <p id="result-warnings" class="warning" hidden></p>
+      <section id="result-warnings" class="warning review-notice" aria-labelledby="review-title" hidden>
+        <h2 id="review-title">Itens para revisão</h2>
+        <p id="review-summary"></p>
+        <p id="review-guidance">No Excel, as NCMs não preenchidas e as descrições originais mantidas estão destacadas em amarelo.</p>
+        <details id="database-review" hidden>
+          <summary id="review-details-label">Ver produtos para revisão</summary>
+          <div class="review-table-scroll">
+            <table class="review-table">
+              <thead><tr><th scope="col">Supply code</th><th scope="col">Pendência no database</th></tr></thead>
+              <tbody id="review-products"></tbody>
+            </table>
+          </div>
+        </details>
+        <ul id="other-warnings" hidden></ul>
+      </section>
       <div class="actions">
         <a class="text-link" href="/">Processar outra PO</a>
       </div>
@@ -40,7 +54,45 @@
 
       if (result.warnings?.length) {
         const warnings = document.getElementById('result-warnings');
-        warnings.textContent = `Avisos: ${result.warnings.join(', ')}`;
+        const databaseWarnings = [];
+        const otherWarnings = [];
+        for (const message of result.warnings) {
+          const match = message.match(/^Supply code (.+?): (.+?)(?:;|$)/);
+          if (match) {
+            databaseWarnings.push({code: match[1], reason: match[2]});
+          } else {
+            otherWarnings.push(message);
+          }
+        }
+        if (databaseWarnings.length) {
+          const count = databaseWarnings.length;
+          document.getElementById('review-summary').textContent =
+            `${count} ${count === 1 ? 'produto precisa' : 'produtos precisam'} de revisão no cadastro.`;
+          document.getElementById('review-details-label').textContent = `Ver produtos para revisão (${count})`;
+          document.getElementById('database-review').hidden = false;
+          const products = document.getElementById('review-products');
+          for (const {code, reason} of databaseWarnings) {
+            const row = document.createElement('tr');
+            for (const value of [code, reason]) {
+              const cell = document.createElement('td');
+              cell.textContent = value;
+              row.appendChild(cell);
+            }
+            products.appendChild(row);
+          }
+        } else {
+          document.getElementById('review-summary').textContent = 'Confira os avisos abaixo antes de utilizar o arquivo.';
+          document.getElementById('review-guidance').hidden = true;
+        }
+        if (otherWarnings.length) {
+          const list = document.getElementById('other-warnings');
+          for (const message of otherWarnings) {
+            const entry = document.createElement('li');
+            entry.textContent = message;
+            list.appendChild(entry);
+          }
+          list.hidden = false;
+        }
         warnings.hidden = false;
       }
 

@@ -42,6 +42,8 @@ def test_draft_resizes_and_preserves_layout(tmp_path, count):
     total = 19 + count
     assert ws["A19"].value == "003193"
     assert ws["C19"].value == "00ABC-1"
+    assert ws["D19"].fill.fgColor.rgb == "00FFFF00"
+    assert ws["E19"].fill.fgColor.rgb == "00FFFF00"
     assert ws.cell(total - 1, 3).value == f"00ABC-{count}"
     assert ws.cell(total, 12).value == float(Decimal("1250.5") * count)
     assert Decimal(str(ws.cell(total, 13).value)) == Decimal("2.88") * count
@@ -121,6 +123,10 @@ def test_real_po_and_web_download(tmp_path):
     wb = load_workbook(BytesIO(response.content))
     assert wb["Material for production"]["D19"].value == "85332120"
     assert wb["Material for production"]["E19"].value == result.po.items[0].description
+    ws = wb["Material for production"]
+    for row, item in enumerate(result.po.items, 19):
+        assert (ws.cell(row, 4).fill.fgColor.rgb == "00FFFF00") == item.ncm_needs_review
+        assert (ws.cell(row, 5).fill.fgColor.rgb == "00FFFF00") == item.description_needs_review
     assert wb["Material for production"]["M139"].value == 2089539.05
     wb.close()
 
