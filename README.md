@@ -1,6 +1,28 @@
 # Conversor de Pedido TOTVS para Excel
 
-O PDF é a única fonte de dados. O sistema mantém o layout principal do template e deixa vazios NCM, Eletra code, finalidade, centro de custos, LI e projeto. Os quadros históricos de substituição de códigos e MOQ são removidos da planilha gerada. Não faz lookup, substituição de código, MOQ nem inferência.
+O arquivo enviado (PDF ou exportação Excel do TOTVS) é a única fonte dos dados variáveis. Não faz lookup, substituição de código, MOQ nem inferência. Na conversão de PDF, o sistema mantém o layout principal do template e deixa vazios NCM, Eletra code, finalidade, centro de custos, LI e projeto. Os quadros históricos de substituição de códigos e MOQ são removidos da planilha gerada.
+
+## Excel TOTVS → PO DRAFT
+
+No botão **Processar PO**, envie a exportação `.xlsx` no formato **Listagem do Browse**, como `templates/new_po_model/PO 033193.xlsx`. O sistema identifica o cabeçalho pelos nomes das colunas e gera o layout de 14 colunas do `PO DRAFT.xlsx`. O fluxo de PDF continua usando o template anterior; **Processar PO menor** aceita apenas PDF.
+
+O template do novo fluxo está em `app/resources/po_draft_template.xlsx`, copiado do DRAFT fornecido. Para selecionar outro arquivo compatível, configure `DRAFT_TEMPLATE_PATH`. Os dois arquivos originais em `templates/new_po_model` são preservados.
+
+| Origem TOTVS | Destino no DRAFT |
+| --- | --- |
+| Numero | PO # e observações |
+| Item | # |
+| Produto | Supply code (texto, inclusive códigos alfanuméricos) |
+| Descricao | Product description |
+| Quantidade | Total QTY |
+| Prc Unitario | Unit price |
+| Vlr.Total | Total (CNY) |
+| Desc Fornec / Filial | Seller / Buyer (filial sem o prefixo numérico) |
+| Numero da SC | Observações, sem duplicação |
+
+Os totais são valores numéricos somados da origem. O bloco de itens cresce ou diminui preservando aprovação, assinaturas, logo, observações e área de impressão. A data no cabeçalho é a data da conversão em São Paulo, como no fluxo PDF. NCM, modal, Incoterm, pagamento, solicitante, mês de produção, endereços, contatos e CNPJ ficam vazios neste fluxo, pois esses dados não estão preenchidos na exportação de referência. As abas auxiliares ocultas do DRAFT são preservadas, sem consulta às suas tabelas ou fórmulas.
+
+O conversor rejeita planilhas sem o cabeçalho esperado, com mais de uma PO/filial/fornecedor, itens duplicados ou números inválidos. Os testes cobrem redução e expansão do layout, valores decimais brasileiros, preservação dos desenhos e download pela interface.
 
 ## Instalação (Windows / VS Code)
 

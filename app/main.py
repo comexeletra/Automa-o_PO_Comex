@@ -20,11 +20,11 @@ except ModuleNotFoundError:  # Keep the regular local FastAPI workflow intact.
 try:  # Local package execution
     from app.config import APP_ROOT, settings
     from app.exceptions import PurchaseOrderError
-    from app.services.processor import process_purchase_order, process_small_purchase_order
+    from app.services.processor import process_purchase_order, process_small_purchase_order, process_excel_purchase_order
 except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
     from config import APP_ROOT, settings
     from exceptions import PurchaseOrderError
-    from services.processor import process_purchase_order, process_small_purchase_order
+    from services.processor import process_purchase_order, process_small_purchase_order, process_excel_purchase_order
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -60,6 +60,8 @@ def result_screen(request: Request):
 
 @app.post("/process", response_class=HTMLResponse)
 async def process(request: Request, file: UploadFile = File(...)):
+    if (file.filename or "").lower().endswith(".xlsx"):
+        return await _process(request, file, process_excel_purchase_order, excel=True)
     return await _process(request, file, process_purchase_order)
 
 
@@ -68,24 +70,30 @@ async def process_small(request: Request, file: UploadFile = File(...)):
     return await _process(request, file, process_small_purchase_order)
 
 
-async def _process(request: Request, file: UploadFile, processor):
-    if file.content_type not in {"application/pdf", "application/x-pdf"} or not (file.filename or "").lower().endswith(".pdf"):
+async def _process(request: Request, file: UploadFile, processor, *, excel: bool = False):
+    if excel:
+        if file.content_type not in {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream", "application/zip"}:
+            return templates.TemplateResponse(request, "error.html", {"message": "Envie um arquivo Excel .xlsx válido."}, status_code=400)
+    elif file.content_type not in {"application/pdf", "application/x-pdf"} or not (file.filename or "").lower().endswith(".pdf"):
         return templates.TemplateResponse(request, "error.html", {"message": "Envie apenas um arquivo PDF válido."}, status_code=400)
     content = await file.read()
     if len(content) > settings.max_upload_mb * 1024 * 1024:
-        return templates.TemplateResponse(request, "error.html", {"message": f"O PDF excede o limite de {settings.max_upload_mb} MB."}, status_code=413)
-    if not content.startswith(b"%PDF-"):
+        kind = "Excel" if excel else "PDF"
+        return templates.TemplateResponse(request, "error.html", {"message": f"O {kind} excede o limite de {settings.max_upload_mb} MB."}, status_code=413)
+    if excel and not content.startswith(b"PK\x03\x04"):
+        return templates.TemplateResponse(request, "error.html", {"message": "O Excel possui assinatura inválida."}, status_code=400)
+    if not excel and not content.startswith(b"%PDF-"):
         return templates.TemplateResponse(request, "error.html", {"message": "O PDF possui assinatura inválida."}, status_code=400)
     # Workers expose only an ephemeral filesystem. Generate the workbook in a
     # request-scoped directory and return it immediately, rather than keeping a
     # job under storage/ for a later download request.
     with TemporaryDirectory(prefix="totvs-po-") as directory:
         job_dir = Path(directory)
-        input_path, output_path = job_dir / "input.pdf", job_dir / "output.xlsx"
+        input_path, output_path = job_dir / ("input.xlsx" if excel else "input.pdf"), job_dir / "output.xlsx"
         input_path.write_bytes(content)
         started_at = perf_counter()
         try:
-            result = processor(input_path, output_path, settings.template_path)
+            result = processor(input_path, output_path, settings.draft_template_path if excel else settings.template_path)
         except PurchaseOrderError as exc:
             logger.exception("Falha ao processar a PO")
             return templates.TemplateResponse(request, "error.html", {"message": str(exc)}, status_code=422)

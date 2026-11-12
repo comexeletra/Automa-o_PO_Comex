@@ -9,6 +9,8 @@ try:  # Local package execution
     from app.services.pdf_parser import parse_purchase_order
     from app.services.small_po_parser import parse_small_purchase_order
     from app.services.validator import validate_purchase_order
+    from app.services.excel_parser import parse_excel_purchase_order
+    from app.services.draft_writer import write_draft_purchase_order
 except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
     from exceptions import UnsupportedLayoutError
     from models import ProcessingResult
@@ -16,6 +18,8 @@ except ModuleNotFoundError:  # pywrangler exposes app/ as the Worker root
     from services.pdf_parser import parse_purchase_order
     from services.small_po_parser import parse_small_purchase_order
     from services.validator import validate_purchase_order
+    from services.excel_parser import parse_excel_purchase_order
+    from services.draft_writer import write_draft_purchase_order
 
 
 def process_purchase_order(pdf_path: Path, output_path: Path, template_path: Path) -> ProcessingResult:
@@ -30,6 +34,13 @@ def process_purchase_order(pdf_path: Path, output_path: Path, template_path: Pat
         compact_layout = True
     warnings = validate_purchase_order(po)
     write_purchase_order(po, template_path, output_path, compact_layout=compact_layout)
+    return ProcessingResult(job_id=None, po=po, output_path=str(output_path), warnings=warnings)
+
+
+def process_excel_purchase_order(input_path: Path, output_path: Path, template_path: Path) -> ProcessingResult:
+    po = parse_excel_purchase_order(input_path)
+    warnings = validate_purchase_order(po)
+    write_draft_purchase_order(po, template_path, output_path)
     return ProcessingResult(job_id=None, po=po, output_path=str(output_path), warnings=warnings)
 
 

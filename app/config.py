@@ -18,6 +18,7 @@ class Settings:
     max_upload_mb: int = int(os.getenv("MAX_UPLOAD_MB", "4"))
     max_output_mb: int = int(os.getenv("MAX_OUTPUT_MB", "4"))
     template_path: Path = Path(os.getenv("TEMPLATE_PATH", str(RESOURCE_ROOT / "po_template.xlsx")))
+    draft_template_path: Path = Path(os.getenv("DRAFT_TEMPLATE_PATH", str(RESOURCE_ROOT / "po_draft_template.xlsx")))
     storage_root: Path = Path(os.getenv("STORAGE_ROOT", str(PROJECT_ROOT / "storage")))
     watch_enabled: bool = os.getenv("WATCH_ENABLED", "false").lower() == "true"
     watch_interval_seconds: int = int(os.getenv("WATCH_INTERVAL_SECONDS", "10"))
