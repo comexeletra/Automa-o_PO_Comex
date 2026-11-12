@@ -81,13 +81,15 @@ def write_draft_purchase_order(po: PurchaseOrder, template_path: Path, output_pa
         ws.cell(total, 13).value = po.merchandise_total
         ws.cell(total, 13).number_format = "#,##0.00"
 
+        # The DRAFT supplies the fixed registration details. The TOTVS branch
+        # label is not a replacement for the buyer's full legal name.
+        if po.supplier_name:
+            ws["A3"] = po.supplier_name
+            ws["A3"].data_type = "s"
+        if not ws["A9"].value and po.company_name:
+            ws["A9"] = po.company_name
+            ws["A9"].data_type = "s"
         # Commercial example values must not become facts about the new PO.
-        ws["A3"] = po.supplier_name
-        for row in range(4, 8):
-            ws.cell(row, 1).value = None
-        ws["A9"] = po.company_name
-        for row in range(10, 13):
-            ws.cell(row, 1).value = None
         ws["I2"] = _conversion_date()
         for address in ("I4", "I6", "I8", "I10", "I12"):
             ws[address] = None

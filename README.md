@@ -17,10 +17,11 @@ O template do novo fluxo está em `app/resources/po_draft_template.xlsx`, copiad
 | Quantidade | Total QTY |
 | Prc Unitario | Unit price |
 | Vlr.Total | Total (CNY) |
-| Desc Fornec / Filial | Seller / Buyer (filial sem o prefixo numérico) |
+| Desc Fornec | Seller |
+| Filial | Buyer, caso o DRAFT não contenha a razão social |
 | Numero da SC | Observações, sem duplicação |
 
-Os totais são valores numéricos somados da origem. O bloco de itens cresce ou diminui preservando aprovação, assinaturas, logo, observações e área de impressão. A data no cabeçalho é a data da conversão em São Paulo, como no fluxo PDF. NCM, modal, Incoterm, pagamento, solicitante, mês de produção, endereços, contatos e CNPJ ficam vazios neste fluxo, pois esses dados não estão preenchidos na exportação de referência. As abas auxiliares ocultas do DRAFT são preservadas, sem consulta às suas tabelas ou fórmulas.
+Os totais são valores numéricos somados da origem. O bloco de itens cresce ou diminui preservando aprovação, assinaturas, logo, observações e área de impressão. A data no cabeçalho é a data da conversão em São Paulo, como no fluxo PDF. Os dados cadastrais fixos do DRAFT são preservados: razão social do comprador, CNPJ, endereços e contatos. NCM, modal, Incoterm, pagamento, solicitante e mês de produção ficam vazios neste fluxo, pois esses dados não estão preenchidos na exportação de referência. As abas auxiliares ocultas do DRAFT são preservadas, sem consulta às suas tabelas ou fórmulas.
 
 O conversor rejeita planilhas sem o cabeçalho esperado, com mais de uma PO/filial/fornecedor, itens duplicados ou números inválidos. Os testes cobrem redução e expansão do layout, valores decimais brasileiros, preservação dos desenhos e download pela interface.
 

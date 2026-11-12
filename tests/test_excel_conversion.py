@@ -51,6 +51,15 @@ def test_draft_resizes_and_preserves_layout(tmp_path, count):
     assert ws.auto_filter.ref == f"A18:N{total - 1}"
     assert ws.print_area.endswith(f"$A$1:$N${66 + count - 22}")
     assert all(ws[address].value is None for address in ("D19", "I4", "I6", "I8", "I10", "I12"))
+    template = load_workbook(TEMPLATE)
+    try:
+        fixed_header = ("A4", "A5", "A6", "A7", "A9", "A10", "A11", "A12")
+        for address in fixed_header:
+            assert ws[address].value == template[ws.title][address].value
+            assert ws[address].value
+        assert ws["A3"].value == "Supplier"
+    finally:
+        template.close()
     assert all(ws.cell(row, col).data_type != "f" for row in range(19, total + 1) for col in range(1, 15))
     assert f"E19:K19" in {str(merge) for merge in ws.merged_cells.ranges}
     assert wb["Old descriptions"].sheet_state == "hidden"
