@@ -31,9 +31,8 @@
         <p id="processing-timer" class="processing-timer" role="status" aria-live="polite" hidden></p>
         <div class="process-actions">
           <button type="submit" data-endpoint="/process" data-label="Processar PO">Processar PO <span aria-hidden="true">→</span></button>
-          <button type="submit" class="compact-button" data-endpoint="/process-small" data-label="Processar PO menor">Processar PO menor <span aria-hidden="true">→</span></button>
         </div>
-        <p class="compact-help">“Processar PO” converte o Excel exportado do TOTVS para o layout PO DRAFT e reconhece os modelos PDF já suportados. “Processar PO menor” aceita apenas PDF.</p>
+        <p class="compact-help">“Processar PO” converte o Excel exportado do TOTVS para o layout PO DRAFT e reconhece os modelos PDF já suportados.</p>
       </form>
     </section>
     <p class="footer-note">Dados extraídos exclusivamente do relatório TOTVS.</p>
@@ -55,7 +54,6 @@
 
     fileInput.addEventListener('change', () => {
       showSelectedFile(fileInput.files[0]);
-      processButtons[1].disabled = fileInput.files[0]?.name.toLowerCase().endsWith('.xlsx') || false;
       processingTimer.hidden = true;
     });
 
@@ -90,7 +88,6 @@
       fileInput.files = transfer.files;
       processingTimer.hidden = true;
       showSelectedFile(droppedFile);
-      processButtons[1].disabled = droppedFile.name.toLowerCase().endsWith('.xlsx');
     });
 
     form.addEventListener('submit', async (event) => {
@@ -159,7 +156,6 @@
       } finally {
         window.clearInterval(timerId);
         processButtons.forEach((button) => { button.disabled = false; });
-        processButtons[1].disabled = fileInput.files[0]?.name.toLowerCase().endsWith('.xlsx') || false;
       }
     });
   </script>
